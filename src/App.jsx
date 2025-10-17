@@ -715,7 +715,7 @@ function App() {
       const genAI = new GoogleGenerativeAI(apiKey.trim());
       const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
-      const prompt = `Please provide a clear, concise summary of the following transcription. Focus on the main points, key topics discussed, and important information. Keep the summary well-structured and easy to read:
+      const prompt = `Please provide a clear, concise summary of the following transcription. IMPORTANT: Write the summary in the exact same language as the original transcription below. Do not translate or change the language. Focus on the main points, key topics discussed, and important information:
 
 ${text}`;
 
