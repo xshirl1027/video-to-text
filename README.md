@@ -20,7 +20,6 @@ This is a video-to-text web app that allows users to transform video to text as 
 ## Demo
 <img width="987" height="625" alt="Screenshot 2025-10-17 at 12 12 30 PM" src="https://github.com/user-attachments/assets/8f3bb3b7-5269-44b6-a2dc-3e46d82a4dc5" />
 <img width="999" height="621" alt="Screenshot 2025-10-17 at 12 12 37 PM" src="https://github.com/user-attachments/assets/bf221cd9-0f9d-4c00-90fd-8ba4d7991907" />
-<img width="1190" height="602" alt="Screenshot 2025-10-17 at 12 12 56 PM" src="https://github.com/user-attachments/assets/cc53c8c5-749a-4d89-a31b-f4d7452a937c" />
 <img width="935" height="640" alt="Screenshot 2025-10-17 at 12 13 45 PM" src="https://github.com/user-attachments/assets/6f790267-f8e0-4ca2-a760-afd31caff772" />
 <img width="1041" height="640" alt="Screenshot 2025-10-17 at 12 13 51 PM" src="https://github.com/user-attachments/assets/96bacd9f-40f7-4cbf-937f-8c38ec038f10" />
 
