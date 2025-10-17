@@ -11,6 +11,7 @@ function App() {
   const [transcriptionText, setTranscriptionText] = useState('');
   const [networkStatus, setNetworkStatus] = useState('online'); // online, offline, testing
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isAudioFile, setIsAudioFile] = useState(false);
   const ffmpegRef = useRef(new FFmpeg());
   const messageRef = useRef(null);
 
@@ -353,7 +354,36 @@ function App() {
     }
     
     setSelectedFile(file);
+    setIsAudioFile(false);
     setTranscriptionText('');
+  };
+
+  const handleAudioUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      if (!file.type.startsWith('audio/')) {
+        alert('Please select a valid audio file (MP3, WAV, etc.).');
+        return;
+      }
+      
+      const maxSizeMB = 25;
+      const fileSizeMB = file.size / 1024 / 1024;
+      
+      if (fileSizeMB > maxSizeMB) {
+        alert(`Audio file is too large (${fileSizeMB.toFixed(1)}MB). Please select a file smaller than ${maxSizeMB}MB.`);
+        return;
+      }
+      
+      setSelectedFile(file);
+      setIsAudioFile(true);
+      setTranscriptionText('');
+    };
+    input.click();
   };
 
   const loadFFmpeg = async () => {
@@ -762,7 +792,7 @@ ${text}`;
 
   const processVideo = async () => {
     if (!selectedFile) {
-      alert('Please select a video file first.');
+      alert('Please select a file first.');
       return;
     }
 
@@ -773,6 +803,23 @@ ${text}`;
 
     setIsLoading(true);
     setTranscriptionText('');
+    
+    // Handle audio files directly (skip video conversion)
+    if (isAudioFile) {
+      try {
+        setCurrentStep('Processing audio file...');
+        const transcription = await transcribeWithGemini(selectedFile);
+        setTranscriptionText(transcription);
+        setCurrentStep('Audio transcription completed successfully!');
+      } catch (error) {
+        console.error('Audio processing error:', error);
+        setCurrentStep(`Error: ${error.message}`);
+        alert(`Audio processing failed: ${error.message}`);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
     
     let mp3Blob = null;
 
@@ -880,7 +927,7 @@ ${text}`;
       <div className="container">
         <h1>Video to Text Converter</h1>
         <p className="description">
-          Upload a video file, and we'll convert it to MP3 and transcribe it to text using AI. All languages supported.
+          Upload a video file (converted to MP3) or audio file directly for transcription to text using AI. All languages supported.
         </p>
 
         {/* API Key Status Indicator */}
@@ -908,18 +955,29 @@ ${text}`;
                   className="file-input"
                 />
                 <label htmlFor="video-upload" className="file-input-label">
-                  {selectedFile ? selectedFile.name : 'Choose Video File'}
+                  {selectedFile && !isAudioFile ? selectedFile.name : 'Choose Video File'}
                 </label>
+                <button 
+                  onClick={handleAudioUpload}
+                  className="audio-upload-btn"
+                  type="button"
+                >
+                  Upload Audio Instead
+                </button>
               </div>
               
               {selectedFile && (
                 <div className="file-info">
                   <p>Selected: {selectedFile.name}</p>
+                  <p>Type: {isAudioFile ? 'Audio File' : 'Video File'}</p>
                   <p>Size: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                  {selectedFile.size / 1024 / 1024 > 20 && (
+                  {selectedFile.size / 1024 / 1024 > 20 && !isAudioFile && (
                     <p className="size-warning">⚠️ Large files may take longer to process and risk memory errors</p>
                   )}
-                  {selectedFile.size / 1024 / 1024 > 10 && selectedFile.size / 1024 / 1024 <= 20 && (
+                  {selectedFile.size / 1024 / 1024 > 15 && isAudioFile && (
+                    <p className="size-warning">⚠️ Large audio files may take longer to process</p>
+                  )}
+                  {selectedFile.size / 1024 / 1024 > 10 && selectedFile.size / 1024 / 1024 <= 20 && !isAudioFile && (
                     <p className="size-info">💡 Processing may take 2-5 minutes</p>
                   )}
                   {selectedFile.size / 1024 / 1024 <= 5 && (
