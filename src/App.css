@@ -312,6 +312,10 @@ h1 {
 
 .download-section {
   text-align: center;
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .download-btn {
@@ -324,12 +328,55 @@ h1 {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
+  flex: 1;
+  min-width: 200px;
 }
 
 .download-btn:hover {
   background: #138496;
   transform: translateY(-2px);
   box-shadow: 0 6px 12px rgba(23, 162, 184, 0.3);
+}
+
+.summary-btn {
+  background: #28a745;
+}
+
+.summary-btn:hover {
+  background: #218838;
+  box-shadow: 0 6px 12px rgba(40, 167, 69, 0.3);
+}
+
+.download-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.download-btn:disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.download-btn.loading {
+  position: relative;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff40;
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .api-key-change {

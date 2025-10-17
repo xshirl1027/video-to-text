@@ -10,6 +10,7 @@ function App() {
   const [currentStep, setCurrentStep] = useState('');
   const [transcriptionText, setTranscriptionText] = useState('');
   const [networkStatus, setNetworkStatus] = useState('online'); // online, offline, testing
+  const [isSummarizing, setIsSummarizing] = useState(false);
   const ffmpegRef = useRef(new FFmpeg());
   const messageRef = useRef(null);
 
@@ -705,6 +706,60 @@ function App() {
     document.body.removeChild(element);
   };
 
+  const summarizeText = async (text) => {
+    if (!apiKey || apiKey === 'your_api_key_here') {
+      throw new Error('API key not configured for summarization');
+    }
+
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey.trim());
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+
+      const prompt = `Please provide a clear, concise summary of the following transcription. Focus on the main points, key topics discussed, and important information. Keep the summary well-structured and easy to read:
+
+${text}`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const summary = response.text();
+
+      if (!summary || summary.trim().length === 0) {
+        throw new Error('Failed to generate summary');
+      }
+
+      return summary.trim();
+    } catch (error) {
+      console.error('Summarization error:', error);
+      throw new Error(`Summarization failed: ${error.message}`);
+    }
+  };
+
+  const handleDownloadSummary = async () => {
+    if (!transcriptionText) {
+      alert('No transcription available to summarize');
+      return;
+    }
+
+    if (isSummarizing) {
+      return; // Prevent multiple simultaneous requests
+    }
+
+    try {
+      setIsSummarizing(true);
+      setCurrentStep('Generating AI summary...');
+      const summary = await summarizeText(transcriptionText);
+      downloadTextFile(summary, 'transcription-summary.txt');
+      setCurrentStep('Summary downloaded successfully!');
+      setTimeout(() => setCurrentStep(''), 3000); // Clear message after 3 seconds
+    } catch (error) {
+      console.error('Summary download error:', error);
+      alert(`Failed to generate summary: ${error.message}`);
+      setCurrentStep('');
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
   const processVideo = async () => {
     if (!selectedFile) {
       alert('Please select a video file first.');
@@ -916,6 +971,20 @@ function App() {
                     className="download-btn"
                   >
                     Download Timestamped Transcript
+                  </button>
+                  <button
+                    onClick={handleDownloadSummary}
+                    className={`download-btn summary-btn ${isSummarizing ? 'loading' : ''}`}
+                    disabled={isSummarizing}
+                  >
+                    {isSummarizing ? (
+                      <>
+                        <span className="spinner"></span>
+                        Generating Summary...
+                      </>
+                    ) : (
+                      'Download Summarized Text'
+                    )}
                   </button>
                 </div>
               </div>
