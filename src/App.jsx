@@ -880,7 +880,7 @@ ${text}`;
       <div className="container">
         <h1>Video to Text Converter</h1>
         <p className="description">
-          Upload a video file, and we'll convert it to MP3 and transcribe it to text using AI.
+          Upload a video file, and we'll convert it to MP3 and transcribe it to text using AI. All languages supported.
         </p>
 
         {/* API Key Status Indicator */}
