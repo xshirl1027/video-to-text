@@ -1,0 +1,46 @@
+{
+  "name": "video-to-text",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "this is a video-to-text web app that allows user to transform video to text as well as the ability to summarize it.",
+  "scripts": {
+    "dev": "vite",
+    "dev:clean": "lsof -ti:5173,5174,5175 | xargs kill -9 2>/dev/null || echo 'No processes to kill' && npm run dev",
+    "stop": "lsof -ti:5173,5174,5175 | xargs kill -9 2>/dev/null || echo 'No processes to kill'",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.1",
+    "@google/generative-ai": "^0.15.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.0.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xshirl1027/video-to-text.git"
+  },
+  "keywords": [
+    "video",
+    "ai",
+    "summarizer",
+    "transcription",
+    "react",
+    "ffmpeg",
+    "gemini"
+  ],
+  "author": "Shirley Xia",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/xshirl1027/video-to-text/issues"
+  },
+  "homepage": "https://github.com/xshirl1027/video-to-text#readme"
+}
