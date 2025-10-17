@@ -1,6 +1,8 @@
 # Video to Text Converter
 
 This is a video-to-text web app that allows users to transform video to text as well as the ability to summarize it.
+You can access it here:
+https://video-to-text-eta.vercel.app
 
 ## Features
 
