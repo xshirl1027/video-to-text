@@ -133,7 +133,7 @@ h1 {
 
 .file-input-label {
   display: inline-block;
-  padding: 20px 40px;
+  padding: 20px 30px;
   background: #667eea;
   color: white;
   border-radius: 15px;
@@ -142,6 +142,10 @@ h1 {
   font-weight: 600;
   transition: all 0.3s ease;
   border: 2px solid transparent;
+  min-width: 180px;
+  text-align: center;
+  flex: 1;
+  max-width: 250px;
 }
 
 .file-input-label:hover {
@@ -161,12 +165,31 @@ h1 {
   font-weight: 600;
   transition: all 0.3s ease;
   min-width: 180px;
+  text-align: center;
+  flex: 1;
+  max-width: 250px;
 }
 
 .audio-upload-btn:hover {
   background: #5a32a3;
   transform: translateY(-2px);
   box-shadow: 0 10px 20px rgba(111, 66, 193, 0.3);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .file-input-wrapper {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .file-input-label,
+  .audio-upload-btn {
+    width: 100%;
+    max-width: none;
+    padding: 18px 20px;
+    font-size: 1rem;
+  }
 }
 
 .file-info {
