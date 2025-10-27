@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import './App.css';
 
 function App() {
@@ -612,7 +612,31 @@ function App() {
     try {
       // Test API key validity first
       const genAI = new GoogleGenerativeAI(apiKey.trim());
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      
+      // Safety settings to allow all content including violence and sexual content
+      const safetySettings = [
+        {
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+      ];
+      
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash",
+        safetySettings: safetySettings
+      });
 
       // Convert blob to base64 using chunked processing to avoid stack overflow
       const base64Audio = await new Promise((resolve, reject) => {
@@ -743,7 +767,31 @@ function App() {
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey.trim());
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+      
+      // Safety settings to allow all content including violence and sexual content
+      const safetySettings = [
+        {
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+      ];
+      
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.0-flash-exp",
+        safetySettings: safetySettings
+      });
 
       const prompt = `Please provide a clear, concise summary of the following transcription. IMPORTANT: Write the summary in the exact same language as the original transcription below. Do not translate or change the language. Focus on the main points, key topics discussed, and important information:
 
