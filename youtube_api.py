@@ -20,7 +20,7 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all domains
 
 # Create temporary directory for downloads
-TEMP_DIR = os.path.join(tempfile.gettempdir(), 'youtube_audio_extractor')
+TEMP_DIR = os.path.join(tempfile.gettempdir(), 'youtube_video_extractor')
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 def is_valid_youtube_url(url):
@@ -30,21 +30,16 @@ def is_valid_youtube_url(url):
         return True
     return False
 
-def extract_audio_from_youtube(url, output_path):
+def extract_video_from_youtube(url, output_path):
     """
-    Extract audio from YouTube video using yt-dlp
-    Returns the path to the extracted audio file and metadata
+    Download video from YouTube using yt-dlp
+    Returns the path to the downloaded video file and metadata
     """
     try:
-        # Configure yt-dlp options for audio extraction
+        # Configure yt-dlp options for video download
         ydl_opts = {
-            'format': 'bestaudio/best',
+            'format': 'best[height<=720]/best',  # Download best quality up to 720p
             'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
             'quiet': True,
             'no_warnings': True,
         }
@@ -53,32 +48,33 @@ def extract_audio_from_youtube(url, output_path):
             # Extract info first to get metadata
             info = ydl.extract_info(url, download=False)
             
-            # Download and extract audio
+            # Download video
             ydl.download([url])
             
-            # Find the downloaded file (it will have .mp3 extension after post-processing)
+            # Find the downloaded file (common video extensions)
             title = info.get('title', 'Unknown Title').replace('/', '_').replace('\\', '_')
-            audio_file = None
+            video_file = None
+            video_extensions = ['.mp4', '.mkv', '.webm', '.avi', '.mov', '.flv']
             
-            # Look for the extracted audio file
+            # Look for the downloaded video file
             for file in os.listdir(output_path):
-                if file.endswith('.mp3') and title.replace(' ', '_') in file.replace(' ', '_'):
-                    audio_file = os.path.join(output_path, file)
+                if any(file.endswith(ext) for ext in video_extensions) and title.replace(' ', '_') in file.replace(' ', '_'):
+                    video_file = os.path.join(output_path, file)
                     break
             
-            # If not found by title matching, get the newest .mp3 file
-            if not audio_file:
-                mp3_files = [f for f in os.listdir(output_path) if f.endswith('.mp3')]
-                if mp3_files:
+            # If not found by title matching, get the newest video file
+            if not video_file:
+                video_files = [f for f in os.listdir(output_path) if any(f.endswith(ext) for ext in video_extensions)]
+                if video_files:
                     # Get the most recently created file
-                    mp3_files.sort(key=lambda x: os.path.getctime(os.path.join(output_path, x)), reverse=True)
-                    audio_file = os.path.join(output_path, mp3_files[0])
+                    video_files.sort(key=lambda x: os.path.getctime(os.path.join(output_path, x)), reverse=True)
+                    video_file = os.path.join(output_path, video_files[0])
             
-            if not audio_file or not os.path.exists(audio_file):
-                raise Exception("Audio file not found after extraction")
+            if not video_file or not os.path.exists(video_file):
+                raise Exception("Video file not found after download")
                 
             return {
-                'audio_file': audio_file,
+                'video_file': video_file,
                 'title': info.get('title', 'Unknown Title'),
                 'duration': info.get('duration', 0),
                 'uploader': info.get('uploader', 'Unknown'),
@@ -89,22 +85,22 @@ def extract_audio_from_youtube(url, output_path):
             }
             
     except Exception as e:
-        raise Exception(f"Failed to extract audio: {str(e)}")
+        raise Exception(f"Failed to download video: {str(e)}")
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'ok',
-        'message': 'YouTube Audio Extractor API is running'
+        'message': 'YouTube Video Downloader API is running'
     })
 
-@app.route('/api/extract-audio', methods=['POST'])
-def extract_audio():
+@app.route('/api/extract-video', methods=['POST'])
+def extract_video():
     """
-    Extract audio from YouTube URL
+    Download video from YouTube URL
     Expected JSON payload: {"url": "youtube_url"}
-    Returns: JSON with audio file info and download URL
+    Returns: JSON with video file info and download URL
     """
     try:
         data = request.get_json()
@@ -135,15 +131,15 @@ def extract_audio():
         
         try:
             print(f"Processing YouTube URL: {url}")
-            result = extract_audio_from_youtube(url, request_dir)
+            result = extract_video_from_youtube(url, request_dir)
             
             # Store the file path in a way we can retrieve it later
-            audio_filename = os.path.basename(result['audio_file'])
+            video_filename = os.path.basename(result['video_file'])
             
             response_data = {
                 'success': True,
                 'request_id': request_id,
-                'audio_filename': audio_filename,
+                'video_filename': video_filename,
                 'metadata': {
                     'title': result['title'],
                     'duration': result['duration'],
@@ -154,7 +150,7 @@ def extract_audio():
                 }
             }
             
-            print(f"Successfully extracted audio: {result['title']}")
+            print(f"Successfully downloaded video: {result['title']}")
             return jsonify(response_data)
             
         except Exception as e:
@@ -171,10 +167,10 @@ def extract_audio():
             'error': str(e)
         }), 500
 
-@app.route('/api/download-audio/<request_id>/<filename>', methods=['GET'])
-def download_audio(request_id, filename):
+@app.route('/api/download-video/<request_id>/<filename>', methods=['GET'])
+def download_video(request_id, filename):
     """
-    Download the extracted audio file
+    Download the video file
     """
     try:
         # Validate request_id format (should be UUID)
@@ -186,7 +182,7 @@ def download_audio(request_id, filename):
         file_path = os.path.join(TEMP_DIR, request_id, filename)
         
         if not os.path.exists(file_path):
-            return jsonify({'error': 'Audio file not found or expired'}), 404
+            return jsonify({'error': 'Video file not found or expired'}), 404
         
         # Send file and clean up after
         def remove_file():
@@ -201,7 +197,7 @@ def download_audio(request_id, filename):
         response = send_file(
             file_path,
             as_attachment=False,  # Don't force download, just serve the file
-            mimetype='audio/mpeg'
+            mimetype='video/mp4'
         )
         
         # Set CORS headers
@@ -216,7 +212,7 @@ def download_audio(request_id, filename):
         return response
         
     except Exception as e:
-        print(f"Error downloading audio: {str(e)}")
+        print(f"Error downloading video: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/cleanup/<request_id>', methods=['DELETE'])
@@ -257,7 +253,7 @@ def cleanup_old_files():
         pass
 
 if __name__ == '__main__':
-    print("Starting YouTube Audio Extractor API...")
+    print("Starting YouTube Video Downloader API...")
     print("Cleaning up old files...")
     cleanup_old_files()
     
@@ -267,8 +263,8 @@ if __name__ == '__main__':
     print(f"API will be available at: http://localhost:{port}")
     print("Endpoints:")
     print("  GET  /api/health - Health check")
-    print("  POST /api/extract-audio - Extract audio from YouTube URL")
-    print("  GET  /api/download-audio/<request_id>/<filename> - Download extracted audio")
+    print("  POST /api/extract-video - Download video from YouTube URL")
+    print("  GET  /api/download-video/<request_id>/<filename> - Download video file")
     
     if debug_mode:
         print("Running in debug mode")

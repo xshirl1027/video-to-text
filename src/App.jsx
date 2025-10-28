@@ -401,14 +401,14 @@ function App() {
 
     try {
       setIsProcessingYoutube(true);
-      setCurrentStep('Extracting audio from YouTube video...');
+      setCurrentStep('Downloading YouTube video...');
       setTranscriptionText('');
       setSummaryText('');
       setSelectedFile(null);
       setIsAudioFile(false);
 
-      // Call Flask API to extract audio
-      const response = await fetch(`${API_BASE_URL}/api/extract-audio`, {
+      // Call Flask API to download video
+      const response = await fetch(`${API_BASE_URL}/api/extract-video`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -418,40 +418,40 @@ function App() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to extract audio from YouTube video');
+        throw new Error(errorData.error || 'Failed to extract video from YouTube video');
       }
 
       const data = await response.json();
-      setCurrentStep('YouTube audio extracted successfully! Starting transcription...');
+      setCurrentStep('YouTube video downloaded successfully! Starting transcription...');
 
-      // Download the audio file
-      const audioResponse = await fetch(`${API_BASE_URL}/api/download-audio/${data.request_id}/${data.audio_filename}`);
-      if (!audioResponse.ok) {
-        throw new Error('Failed to download extracted audio');
+      // Download the video file
+      const videoResponse = await fetch(`${API_BASE_URL}/api/download-video/${data.request_id}/${data.video_filename}`);
+      if (!videoResponse.ok) {
+        throw new Error('Failed to download video');
       }
 
-      const audioBlob = await audioResponse.blob();
+      const videoBlob = await videoResponse.blob();
       // Use the video title for better UX, fallback to filename
-      const displayName = data.metadata?.title || data.audio_filename || 'YouTube Audio';
-      const audioFile = new File([audioBlob], displayName, { type: 'audio/mpeg' });
+      const displayName = data.metadata?.title || data.video_filename || 'YouTube Video';
+      const videoFile = new File([videoBlob], displayName, { type: 'video/mp4' });
 
       // Store download data for later use
       setYoutubeDownloadData({
-        filename: data.audio_filename,
+        filename: data.video_filename,
         title: data.metadata?.title || displayName,
-        blob: audioBlob,
+        blob: videoBlob,
         requestId: data.request_id
       });
 
-      // Set the audio file for transcription
-      setSelectedFile(audioFile);
-      setIsAudioFile(true);
+      // Set the video file for transcription
+      setSelectedFile(videoFile);
+      setIsAudioFile(false);
       
       setCurrentStep('Ready to transcribe. Processing...');
       
-      // Auto-start transcription
+      // Auto-start transcription - processVideo handles both video and audio
       setTimeout(() => {
-        transcribeAudio(audioFile);
+        processVideo();
       }, 500);
 
     } catch (error) {
@@ -463,9 +463,9 @@ function App() {
     }
   };
 
-  const handleDownloadYouTubeAudio = () => {
+  const handleDownloadYouTubeVideo = () => {
     if (!youtubeDownloadData || !youtubeDownloadData.blob) {
-      alert('No YouTube audio file available for download');
+      alert('No YouTube video file available for download');
       return;
     }
 
@@ -474,14 +474,14 @@ function App() {
       const url = URL.createObjectURL(youtubeDownloadData.blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = youtubeDownloadData.filename || `${youtubeDownloadData.title}.mp3`;
+      a.download = youtubeDownloadData.filename || `${youtubeDownloadData.title}.mp4`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download error:', error);
-      alert('Failed to download the audio file');
+      alert('Failed to download the video file');
     }
   };
 
@@ -1092,7 +1092,55 @@ ${text}`;
           </div>
         )}
 
-        <div className="upload-section">
+        <div className="youtube-section">
+              <h3>Process YouTube Video</h3>
+              <div className="youtube-input-wrapper">
+                <input
+                  type="url"
+                  placeholder="Enter YouTube URL (e.g., https://youtube.com/watch?v=...)"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  className="youtube-input"
+                  disabled={isProcessingYoutube || isLoading}
+                />
+                <button
+                  onClick={handleYouTubeProcess}
+                  disabled={!youtubeUrl.trim() || isProcessingYoutube || isLoading}
+                  className="youtube-process-btn"
+                >
+                  {isProcessingYoutube ? 'Processing YouTube Video...' : 'Extract & Transcribe'}
+                </button>
+              </div>
+              
+              {isProcessingYoutube && (
+                <div className="youtube-processing">
+                  <div className="loading-spinner"></div>
+                  <p className="processing-text">{currentStep}</p>
+                  <p className="processing-note">💡 This may take a few minutes depending on video length</p>
+                </div>
+              )}
+
+              {youtubeDownloadData && !isProcessingYoutube && (
+                <div className="youtube-download-section">
+                  <div className="download-success">
+                    <h4>✅ YouTube Video Downloaded Successfully!</h4>
+                    <p className="video-title">{youtubeDownloadData.title}</p>
+                    <button
+                      onClick={handleDownloadYouTubeVideo}
+                      className="download-btn"
+                    >
+                      📥 Download Video File
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="upload-section">
+              <div className="section-divider">
+                <span>OR</span>
+              </div>
+              
               <div className="file-input-wrapper">
                 <input
                   type="file"
@@ -1140,54 +1188,6 @@ ${text}`;
               >
                 {isLoading ? 'Processing...' : 'Convert to Text'}
               </button>
-            </div>
-
-            <div className="youtube-section">
-              <div className="section-divider">
-                <span>OR</span>
-              </div>
-              
-              <h3>Process YouTube Video</h3>
-              <div className="youtube-input-wrapper">
-                <input
-                  type="url"
-                  placeholder="Enter YouTube URL (e.g., https://youtube.com/watch?v=...)"
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                  className="youtube-input"
-                  disabled={isProcessingYoutube || isLoading}
-                />
-                <button
-                  onClick={handleYouTubeProcess}
-                  disabled={!youtubeUrl.trim() || isProcessingYoutube || isLoading}
-                  className="youtube-process-btn"
-                >
-                  {isProcessingYoutube ? 'Processing YouTube Video...' : 'Extract & Transcribe'}
-                </button>
-              </div>
-              
-              {isProcessingYoutube && (
-                <div className="youtube-processing">
-                  <div className="loading-spinner"></div>
-                  <p className="processing-text">{currentStep}</p>
-                  <p className="processing-note">💡 This may take a few minutes depending on video length</p>
-                </div>
-              )}
-
-              {youtubeDownloadData && !isProcessingYoutube && (
-                <div className="youtube-download-section">
-                  <div className="download-success">
-                    <h4>✅ YouTube Audio Extracted Successfully!</h4>
-                    <p className="video-title">{youtubeDownloadData.title}</p>
-                    <button
-                      onClick={handleDownloadYouTubeAudio}
-                      className="download-btn"
-                    >
-                      📥 Download Audio File
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {isLoading && (
