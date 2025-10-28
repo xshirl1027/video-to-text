@@ -449,9 +449,9 @@ function App() {
       
       setCurrentStep('Ready to transcribe. Processing...');
       
-      // Auto-start transcription - processVideo handles both video and audio
+      // Auto-start transcription - pass the video file directly to avoid state timing issues
       setTimeout(() => {
-        processVideo();
+        processVideoFile(videoFile);
       }, 500);
 
     } catch (error) {
@@ -649,14 +649,31 @@ function App() {
         reader.readAsArrayBuffer(videoFile);
       });
 
+      setCurrentStep('Preparing video file...');
+      
+      // Determine file extension based on file type or use generic input name
+      let inputFileName = 'input.mp4'; // Default
+      if (videoFile.type) {
+        if (videoFile.type.includes('webm')) inputFileName = 'input.webm';
+        else if (videoFile.type.includes('mkv')) inputFileName = 'input.mkv';
+        else if (videoFile.type.includes('avi')) inputFileName = 'input.avi';
+        else if (videoFile.type.includes('mov')) inputFileName = 'input.mov';
+      } else if (videoFile.name) {
+        // Use original extension if available
+        const ext = videoFile.name.split('.').pop()?.toLowerCase();
+        if (ext && ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv'].includes(ext)) {
+          inputFileName = `input.${ext}`;
+        }
+      }
+      
       setCurrentStep('Writing video to FFmpeg...');
-      await ffmpeg.writeFile('input.mp4', new Uint8Array(fileData));
+      await ffmpeg.writeFile(inputFileName, new Uint8Array(fileData));
       
       setCurrentStep('Converting video to MP3 (this may take a while)...');
       
       // Use optimized settings for smaller output and faster processing
       await ffmpeg.exec([
-        '-i', 'input.mp4',
+        '-i', inputFileName,
         '-vn',                    // No video
         '-acodec', 'mp3',         // MP3 codec
         '-ab', '48k',             // Even lower bitrate to reduce file size
@@ -664,6 +681,7 @@ function App() {
         '-ac', '1',               // Mono audio (reduces size by ~50%)
         '-map_metadata', '-1',    // Remove metadata to reduce size
         '-threads', '1',          // Use single thread to reduce memory usage
+        '-y',                     // Overwrite output file if exists
         'output.mp3'
       ]);
       
@@ -671,7 +689,15 @@ function App() {
       const data = await ffmpeg.readFile('output.mp3');
       
       // Clean up input file to free memory immediately
-      await ffmpeg.deleteFile('input.mp4').catch(() => {});
+      const inputFiles = ['input.mp4', 'input.webm', 'input.mkv', 'input.avi', 'input.mov', 'input.flv'];
+      for (const file of inputFiles) {
+        await ffmpeg.deleteFile(file).catch(() => {});
+      }
+      
+      // Verify output file exists and has content
+      if (!data || data.buffer.byteLength === 0) {
+        throw new Error('FFmpeg produced empty output file. The video format may not be supported or the file may be corrupted.');
+      }
       
       // Create blob with proper error handling
       const audioBlob = new Blob([data.buffer], { type: 'audio/mp3' });
@@ -680,20 +706,32 @@ function App() {
       const originalSizeMB = videoFile.size / 1024 / 1024;
       const convertedSizeMB = audioBlob.size / 1024 / 1024;
       console.log(`Conversion complete: ${originalSizeMB.toFixed(2)}MB video → ${convertedSizeMB.toFixed(2)}MB audio`);
+      console.log(`Video format: ${videoFile.type || 'Unknown'}, Name: ${videoFile.name || 'Unknown'}`);
       
       return audioBlob;
     } catch (error) {
       console.error('FFmpeg conversion error:', error);
+      console.error('Video file details:', {
+        name: videoFile.name,
+        type: videoFile.type,
+        size: videoFile.size,
+        lastModified: videoFile.lastModified
+      });
       
-      // Clean up on error
+      // Clean up on error - try all possible input files
       try {
-        await ffmpeg.deleteFile('input.mp4').catch(() => {});
+        const inputFiles = ['input.mp4', 'input.webm', 'input.mkv', 'input.avi', 'input.mov', 'input.flv'];
+        for (const file of inputFiles) {
+          await ffmpeg.deleteFile(file).catch(() => {});
+        }
         await ffmpeg.deleteFile('output.mp3').catch(() => {});
       } catch (cleanupError) {
         console.warn('Cleanup error:', cleanupError);
       }
       
-      throw new Error(`Video conversion failed: ${error.message}`);
+      // Provide more descriptive error message
+      const errorMsg = error?.message || error?.toString() || 'Unknown FFmpeg error';
+      throw new Error(`Video conversion failed: ${errorMsg}. Video type: ${videoFile.type || 'Unknown'}, Size: ${(videoFile.size / 1024 / 1024).toFixed(2)}MB`);
     }
   };
 
@@ -1051,6 +1089,82 @@ ${text}`;
       setCurrentStep('Error occurred during processing.');
     } finally {
       // Clean up memory aggressively
+      if (mp3Blob) {
+        mp3Blob = null;
+      }
+      
+      // Clean up FFmpeg files
+      try {
+        const ffmpeg = ffmpegRef.current;
+        if (ffmpeg.loaded) {
+          await ffmpeg.deleteFile('output.mp3').catch(() => {});
+        }
+      } catch (cleanupError) {
+        console.warn('Cleanup warning:', cleanupError);
+      }
+      
+      setIsLoading(false);
+    }
+  };
+
+  // Process video file directly (used for YouTube downloads)
+  const processVideoFile = async (file) => {
+    if (!file) {
+      alert('No file provided for processing.');
+      return;
+    }
+
+    if (!apiKey || apiKey === 'your_api_key_here') {
+      alert('API key not configured. Please check your .env file and add a valid Gemini API key.');
+      return;
+    }
+
+    setIsLoading(true);
+    setTranscriptionText('');
+    
+    let mp3Blob = null;
+
+    try {
+      // Test network connectivity first
+      try {
+        await testNetworkConnectivity();
+      } catch (networkError) {
+        throw new Error(`Network connectivity test failed: ${networkError.message}. Please check your internet connection, disable VPN if using one, and try again.`);
+      }
+
+      // Load FFmpeg
+      setCurrentStep('Loading FFmpeg...');
+      const loadPromise = loadFFmpeg();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('FFmpeg loading timeout. Please check your internet connection and try again.')), 45000)
+      );
+      
+      await Promise.race([loadPromise, timeoutPromise]);
+
+      // Convert video to MP3
+      setCurrentStep('Converting video to audio...');
+      mp3Blob = await convertToMp3(file);
+      
+      // Check MP3 size before transcription
+      const mp3SizeMB = mp3Blob.size / 1024 / 1024;
+      console.log(`Generated MP3 size: ${mp3SizeMB.toFixed(2)}MB`);
+      
+      if (mp3SizeMB > 20) {
+        throw new Error(`Generated audio file is too large (${mp3SizeMB.toFixed(1)}MB). Gemini API has a 20MB limit. Try with a shorter video or reduce the video quality.`);
+      }
+
+      // Transcribe with Gemini
+      const transcription = await transcribeWithGemini(mp3Blob);
+      
+      setTranscriptionText(transcription);
+      setCurrentStep('Transcription completed successfully!');
+      
+    } catch (error) {
+      console.error('Error processing video file:', error);
+      alert(`Error processing video: ${error.message}`);
+      setCurrentStep('Error occurred during processing.');
+    } finally {
+      // Clean up memory
       if (mp3Blob) {
         mp3Blob = null;
       }
