@@ -298,6 +298,188 @@ h1 {
   margin-top: 10px;
 }
 
+/* YouTube section styles */
+.youtube-section {
+  margin: 30px 0;
+  padding: 25px;
+  background: #f8f9fa;
+  border-radius: 15px;
+  border: 2px dashed #dee2e6;
+}
+
+.section-divider {
+  text-align: center;
+  margin: 20px 0;
+  position: relative;
+}
+
+.section-divider:before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #dee2e6;
+}
+
+.section-divider span {
+  background: white;
+  padding: 0 15px;
+  color: #6c757d;
+  font-weight: 600;
+  position: relative;
+}
+
+.youtube-section h3 {
+  text-align: center;
+  color: #495057;
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.youtube-input-wrapper {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  align-items: stretch;
+}
+
+.youtube-input {
+  flex: 1;
+  padding: 15px 20px;
+  border: 2px solid #dee2e6;
+  border-radius: 10px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.youtube-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.youtube-input:disabled {
+  background: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.youtube-process-btn {
+  padding: 15px 25px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-width: 180px;
+}
+
+.youtube-process-btn:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(220, 53, 69, 0.3);
+}
+
+.youtube-process-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.youtube-processing {
+  text-align: center;
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #dee2e6;
+}
+
+.youtube-processing .processing-text {
+  color: #495057;
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+
+.youtube-processing .processing-note {
+  color: #6c757d;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.youtube-download-section {
+  margin-top: 15px;
+  padding: 20px;
+  background: linear-gradient(135deg, #e8f5e8 0%, #f0f9f0 100%);
+  border-radius: 10px;
+  border: 1px solid #28a745;
+  text-align: center;
+}
+
+.download-success h4 {
+  color: #155724;
+  margin: 0 0 10px 0;
+  font-size: 1.1rem;
+}
+
+.video-title {
+  color: #495057;
+  font-size: 0.95rem;
+  margin: 10px 0 15px 0;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.download-btn {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.download-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+  background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+}
+
+.download-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+/* Mobile responsiveness for YouTube section */
+@media (max-width: 768px) {
+  .youtube-input-wrapper {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .youtube-process-btn {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  .youtube-section {
+    margin: 20px 0;
+    padding: 20px;
+  }
+}
+
 .result-section {
   background: #d4edda;
   border: 1px solid #c3e6cb;

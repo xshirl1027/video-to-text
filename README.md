@@ -1,13 +1,45 @@
-# Video to Text Converter
+# Video to Text - YouTube Transcription App
 
-This is a video-to-text web app that allows users to transform video to text as well as the ability to summarize it.
-You can access it here:
-https://video-to-text-eta.vercel.app
+A complete video-to-text application that can process local video/audio files and YouTube videos, with AI-powered transcription and summarization.
 
-## Features
+## ✨ Features
 
-- Convert video files to MP3 audio
-- Transcribe audio to text using Google's Gemini AI
+- 📹 **Video Processing**: Upload and process video files (MP4, MOV, AVI, etc.)
+- 🎵 **Audio Processing**: Direct audio file upload (MP3, WAV, etc.)  
+- 🎬 **YouTube Integration**: Extract audio from YouTube videos for transcription
+- 🤖 **AI Transcription**: Powered by Google Gemini AI
+- 📝 **AI Summarization**: Generate intelligent summaries of transcribed content
+- 🌐 **Network-Aware**: Handles offline scenarios gracefully
+- ⚡ **Fast Processing**: Optimized for performance with progress tracking
+
+## 🚀 Production Deployment
+
+### Recommended: Split Deployment
+
+**Frontend → Vercel** ✅
+```bash
+npm i -g vercel
+vercel
+# Set in Vercel dashboard:
+# VITE_API_URL=https://your-backend.railway.app
+```
+
+**Backend → Railway** ✅
+```bash
+# Connect repo to Railway
+# Auto-deploys Python Flask app
+# FFmpeg included, no timeouts
+```
+
+### Environment Variables
+
+**Vercel (Frontend):**
+- `VITE_GEMINI_API_KEY`: Your Google Gemini API key
+- `VITE_API_URL`: Your backend URL (Railway app URL)
+
+**Railway (Backend):**
+- `PORT`: Auto-set by Railway
+- `FLASK_ENV`: production
 - Download transcription as a text file
 - Support for various video formats
 - Browser-based processing (no server required)
