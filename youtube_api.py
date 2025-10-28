@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import shutil
+import time
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from yt_dlp import YoutubeDL
@@ -32,130 +33,204 @@ def is_valid_youtube_url(url):
 
 def extract_video_from_youtube(url, output_path):
     """
-    Download video from YouTube using yt-dlp
+    Download video from YouTube using yt-dlp with multiple fallback strategies
     Returns the path to the downloaded video file and metadata
     """
-    try:
-        # Configure yt-dlp options for video download with anti-blocking measures
-        ydl_opts = {
-            'format': 'best[height<=720][ext=mp4]/best[height<=720]/best[ext=mp4]/best',  # Prefer mp4, max 720p
-            'outtmpl': os.path.join(output_path, '%(title).100s.%(ext)s'),  # Limit title length
-            'quiet': False,  # Enable logging for debugging
-            'no_warnings': False,
-            'extract_flat': False,
-            'writethumbnail': False,
-            'writeinfojson': False,
-            # Anti-blocking measures
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'referer': 'https://www.youtube.com/',
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-us,en;q=0.5',
-                'Accept-Encoding': 'gzip,deflate',
-                'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-            },
-            'cookiefile': None,  # Don't use cookies
-            'no_check_certificate': True,
-            'ignoreerrors': False,
-            'logtostderr': False,
-            'socket_timeout': 120,
+    
+    # Define multiple download strategies to try sequentially
+    strategies = [
+        {
+            'name': 'Standard Quality',
+            'format': 'best[height<=480]/best[height<=720]/best',
+            'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'geo_bypass_country': 'US'
+        },
+        {
+            'name': 'Mobile Format',
+            'format': 'worst[height>=360]/best[height<=480]',
+            'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+            'geo_bypass_country': 'CA'
+        },
+        {
+            'name': 'Audio Only + Video Merge',  
+            'format': 'bestaudio[ext=m4a]/bestaudio/best[height<=360]',
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
+            'geo_bypass_country': 'GB'
+        },
+        {
+            'name': 'Lowest Quality',
+            'format': 'worst/worst[ext=mp4]',
+            'user_agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'geo_bypass_country': 'DE'
         }
-
-        with YoutubeDL(ydl_opts) as ydl:
-            # Extract info first to get metadata
-            info = ydl.extract_info(url, download=False)
+    ]
+    
+    last_error = None
+    
+    for i, strategy in enumerate(strategies):
+        try:
+            print(f"Attempting download strategy {i+1}: {strategy['name']}")
             
-            # Download video
-            ydl.download([url])
-            
-            # Debug: List all files in the directory
-            all_files = os.listdir(output_path)
-            print(f"Files in directory after download: {all_files}")
-            
-            # Find the downloaded file (common video extensions)
-            title = info.get('title', 'Unknown Title')
-            # Clean title for filename matching
-            clean_title = title.replace('/', '_').replace('\\', '_').replace(':', '_').replace('?', '_').replace('*', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
-            video_file = None
-            video_extensions = ['.mp4', '.mkv', '.webm', '.avi', '.mov', '.flv', '.m4v']
-            
-            # Method 1: Look for files with title in name
-            for file in all_files:
-                if any(file.lower().endswith(ext.lower()) for ext in video_extensions):
-                    # Try partial title matching (more flexible)
-                    title_words = clean_title.lower().split()[:3]  # First 3 words
-                    if any(word in file.lower() for word in title_words if len(word) > 2):
-                        video_file = os.path.join(output_path, file)
-                        print(f"Found video file by title matching: {file}")
-                        break
-            
-            # Method 2: If not found by title, get the newest video file
-            if not video_file:
-                video_files = [f for f in all_files if any(f.lower().endswith(ext.lower()) for ext in video_extensions)]
-                print(f"Video files found: {video_files}")
-                if video_files:
-                    # Get the most recently created file
-                    video_files.sort(key=lambda x: os.path.getctime(os.path.join(output_path, x)), reverse=True)
-                    video_file = os.path.join(output_path, video_files[0])
-                    print(f"Using newest video file: {video_files[0]}")
-            
-            # Method 3: If still not found, check for ANY files but validate they're not web files
-            if not video_file:
-                other_files = [f for f in all_files if not f.startswith('.') and not f.endswith('.tmp') and not f.endswith('.part')]
-                print(f"Other files found: {other_files}")
-                
-                # Filter out obvious web files
-                non_web_files = []
-                for file in other_files:
-                    file_lower = file.lower()
-                    if not any(file_lower.endswith(ext) for ext in ['.html', '.mhtml', '.xml', '.json', '.txt']):
-                        non_web_files.append(file)
-                
-                if non_web_files:
-                    video_file = os.path.join(output_path, non_web_files[0])
-                    print(f"Using first non-web file: {non_web_files[0]}")
-                elif other_files:
-                    # Check if we got an MHTML file (indicates blocking)
-                    mhtml_files = [f for f in other_files if f.lower().endswith('.mhtml')]
-                    if mhtml_files:
-                        raise Exception(f"YouTube blocked the download - got webpage ({mhtml_files[0]}) instead of video. This may be due to IP blocking or rate limiting. Try again later or use a different video.")
-                    
-                    video_file = os.path.join(output_path, other_files[0])
-                    print(f"WARNING: Using potentially non-video file: {other_files[0]}")
-            
-            if not video_file or not os.path.exists(video_file):
-                print(f"ERROR: No video file found. Directory contents: {all_files}")
-                raise Exception(f"Video file not found after download. Available files: {all_files}")
-            
-            # Additional validation: Check file size and content
-            file_size = os.path.getsize(video_file)
-            print(f"Downloaded file size: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
-            
-            if file_size < 1024:  # Less than 1KB is suspicious
-                raise Exception(f"Downloaded file is too small ({file_size} bytes). This likely indicates a download failure or blocking.")
-            
-            # Check if file might be HTML/MHTML by reading first few bytes
-            with open(video_file, 'rb') as f:
-                first_bytes = f.read(100)
-                if b'<html' in first_bytes.lower() or b'mhtml' in first_bytes.lower():
-                    raise Exception("Downloaded file appears to be a webpage, not a video. YouTube may be blocking downloads from this server.")
-                
-            return {
-                'video_file': video_file,
-                'title': info.get('title', 'Unknown Title'),
-                'duration': info.get('duration', 0),
-                'uploader': info.get('uploader', 'Unknown'),
-                'description': info.get('description', ''),
-                'thumbnail': info.get('thumbnail', ''),
-                'view_count': info.get('view_count', 0),
-                'upload_date': info.get('upload_date', ''),
+            # Configure yt-dlp options for this strategy
+            ydl_opts = {
+                'format': strategy['format'],
+                'outtmpl': os.path.join(output_path, '%(title).100s.%(ext)s'),
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': False,
+                'writethumbnail': False,
+                'writeinfojson': False,
+                # Anti-blocking measures
+                'user_agent': strategy['user_agent'],
+                'referer': 'https://www.youtube.com/',
+                'http_headers': {
+                    'User-Agent': strategy['user_agent'],
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Cache-Control': 'max-age=0',
+                },
+                'cookiefile': None,
+                'no_check_certificate': True,
+                'ignoreerrors': False,
+                'logtostderr': False,
+                'socket_timeout': 60,  # Shorter timeout for faster retries
+                'sleep_interval': 2,
+                'max_sleep_interval': 8,
+                'extractor_retries': 2,
+                'fragment_retries': 2,
+                'skip_unavailable_fragments': True,
+                'geo_bypass': True,
+                'geo_bypass_country': strategy['geo_bypass_country'],
             }
+
+            with YoutubeDL(ydl_opts) as ydl:
+                # Extract info first to get metadata
+                info = ydl.extract_info(url, download=False)
+                video_title = info.get('title', 'Unknown Title')
+                
+                # Download video
+                ydl.download([url])
+                
+                # Find and validate the downloaded file
+                video_file = find_and_validate_video_file(output_path, video_title)
+                
+                if video_file:
+                    print(f"Successfully downloaded using strategy {i+1}: {strategy['name']}")
+                    return {
+                        'video_file': video_file,
+                        'title': video_title,
+                        'duration': info.get('duration', 0),
+                        'uploader': info.get('uploader', 'Unknown'),
+                        'description': info.get('description', ''),
+                        'thumbnail': info.get('thumbnail', ''),
+                        'view_count': info.get('view_count', 0),
+                        'upload_date': info.get('upload_date', ''),
+                    }
+                else:
+                    raise Exception("No valid video file found after download")
+                    
+        except Exception as e:
+            last_error = e
+            print(f"Strategy {i+1} ({strategy['name']}) failed: {e}")
             
+            # Clean up any partial downloads before trying next strategy
+            cleanup_partial_downloads(output_path)
+            
+            # Add a small delay before trying next strategy
+            if i < len(strategies) - 1:
+                time.sleep(3)
+            continue
+    
+    # If all strategies failed
+    raise Exception(f"All download strategies failed. Last error: {str(last_error)}")
+
+
+def find_and_validate_video_file(output_path, expected_title):
+    """Find and validate the downloaded video file"""
+    try:
+        all_files = os.listdir(output_path)
+        print(f"Files in directory after download: {all_files}")
+        
+        video_extensions = ['.mp4', '.mkv', '.webm', '.avi', '.mov', '.flv', '.m4v', '.m4a']
+        video_file = None
+        
+        # Method 1: Look for files with title in name
+        clean_title = expected_title.replace('/', '_').replace('\\', '_').replace(':', '_').replace('?', '_').replace('*', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+        
+        for file in all_files:
+            if any(file.lower().endswith(ext.lower()) for ext in video_extensions):
+                title_words = clean_title.lower().split()[:3]
+                if any(word in file.lower() for word in title_words if len(word) > 2):
+                    video_file = os.path.join(output_path, file)
+                    print(f"Found video file by title matching: {file}")
+                    break
+        
+        # Method 2: Get the newest video file
+        if not video_file:
+            video_files = [f for f in all_files if any(f.lower().endswith(ext.lower()) for ext in video_extensions)]
+            if video_files:
+                video_files.sort(key=lambda x: os.path.getctime(os.path.join(output_path, x)), reverse=True)
+                video_file = os.path.join(output_path, video_files[0])
+                print(f"Using newest video file: {video_files[0]}")
+        
+        # Method 3: Check any remaining files but filter out web files
+        if not video_file:
+            other_files = [f for f in all_files if not f.startswith('.') and not f.endswith('.tmp') and not f.endswith('.part')]
+            non_web_files = [f for f in other_files if not any(f.lower().endswith(ext) for ext in ['.html', '.mhtml', '.xml', '.json', '.txt'])]
+            
+            if non_web_files:
+                video_file = os.path.join(output_path, non_web_files[0])
+                print(f"Using first non-web file: {non_web_files[0]}")
+        
+        if not video_file or not os.path.exists(video_file):
+            return None
+        
+        # Validate file size and content
+        file_size = os.path.getsize(video_file)
+        print(f"Downloaded file size: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
+        
+        if file_size < 1024:
+            print(f"File too small ({file_size} bytes), likely download failure")
+            return None
+        
+        # Check if file is actually a video/audio file
+        with open(video_file, 'rb') as f:
+            first_bytes = f.read(100)
+            if b'<html' in first_bytes.lower() or b'mhtml' in first_bytes.lower() or first_bytes.startswith(b'MIME-Version:'):
+                print("File appears to be a webpage, not a video")
+                return None
+        
+        return video_file
+        
     except Exception as e:
-        raise Exception(f"Failed to download video: {str(e)}")
+        print(f"Error finding video file: {e}")
+        return None
+
+
+def cleanup_partial_downloads(output_path):
+    """Clean up any partial or failed downloads"""
+    try:
+        for file in os.listdir(output_path):
+            file_path = os.path.join(output_path, file)
+            if os.path.isfile(file_path):
+                # Remove partial downloads, web files, and temporary files
+                if (file.endswith(('.part', '.tmp', '.html', '.mhtml', '.xml', '.json', '.txt')) or 
+                    file.startswith('.') or 
+                    os.path.getsize(file_path) < 1024):
+                    try:
+                        os.remove(file_path)
+                        print(f"Cleaned up file: {file}")
+                    except:
+                        pass
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
