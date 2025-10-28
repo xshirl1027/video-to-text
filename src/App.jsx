@@ -418,7 +418,14 @@ function App() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to extract video from YouTube video');
+        const errorMessage = errorData.error || 'Failed to extract video from YouTube video';
+        
+        // Check if it's a YouTube blocking error
+        if (errorMessage.includes('YouTube blocked') || errorMessage.includes('webpage') || errorMessage.includes('403: Forbidden')) {
+          throw new Error('⚠️ YouTube has blocked video downloads. This is common due to their anti-bot measures. Please try:\n\n1. Upload the video file directly using the "Upload Video/Audio" section above\n2. Try again later (YouTube blocking is often temporary)\n3. Use a different video URL\n\nNote: File upload works perfectly and supports the same transcription and summarization features!');
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -1206,48 +1213,27 @@ ${text}`;
           </div>
         )}
 
-        <div className="youtube-section">
-              <h3>Process YouTube Video</h3>
-              <div className="youtube-input-wrapper">
-                <input
-                  type="url"
-                  placeholder="Enter YouTube URL (e.g., https://youtube.com/watch?v=...)"
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                  className="youtube-input"
-                  disabled={isProcessingYoutube || isLoading}
-                />
-                <button
-                  onClick={handleYouTubeProcess}
-                  disabled={!youtubeUrl.trim() || isProcessingYoutube || isLoading}
-                  className="youtube-process-btn"
+        <div className="download-tool-section">
+              <h3>YouTube Video Downloader </h3>
+              <div className="download-tool-wrapper">
+                <a 
+                  href="/youtube-downloader" 
+                  download="youtube-downloader"
+                  className="download-tool-btn"
                 >
-                  {isProcessingYoutube ? 'Processing YouTube Video...' : 'Extract & Transcribe'}
-                </button>
+                  📥 Download YouTube Downloader Tool (20MB)
+                </a>
               </div>
-              
-              {isProcessingYoutube && (
-                <div className="youtube-processing">
-                  <div className="loading-spinner"></div>
-                  <p className="processing-text">{currentStep}</p>
-                  <p className="processing-note">💡 This may take a few minutes depending on video length</p>
-                </div>
-              )}
-
-              {youtubeDownloadData && !isProcessingYoutube && (
-                <div className="youtube-download-section">
-                  <div className="download-success">
-                    <h4>✅ YouTube Video Downloaded Successfully!</h4>
-                    <p className="video-title">{youtubeDownloadData.title}</p>
-                    <button
-                      onClick={handleDownloadYouTubeVideo}
-                      className="download-btn"
-                    >
-                      📥 Download Video File
-                    </button>
-                  </div>
-                </div>
-              )}
+              <div className="tool-instructions">
+                <p><strong>How to use:</strong></p>
+                <ol>
+                  <li>Download the tool above</li>
+                  <li>Open Terminal and make it executable: <code>chmod +x ~/Downloads/youtube-downloader</code></li>
+                  <li>Run: <code>~/Downloads/youtube-downloader</code></li>
+                  <li>Follow the prompts to download YouTube videos</li>
+                  <li>Upload the downloaded video file above for transcription</li>
+                </ol>
+              </div>
             </div>
 
             <div className="upload-section">

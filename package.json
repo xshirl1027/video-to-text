@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:clean": "lsof -ti:5173,5174,5175 | xargs kill -9 2>/dev/null || echo 'No processes to kill' && npm run dev",
-    "stop": "lsof -ti:5173,5174,5175 | xargs kill -9 2>/dev/null || echo 'No processes to kill'",
+    "dev:full": "./dev-start.sh",
+    "backend": "source .venv/bin/activate && python youtube_api.py",
+    "stop": "lsof -ti:5173,5174,5175,5002 | xargs kill -9 2>/dev/null || echo 'No processes to kill'",
     "build": "vite build",
     "preview": "vite preview",
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -334,9 +334,154 @@ h1 {
 .youtube-section h3 {
   text-align: center;
   color: #495057;
+  margin-bottom: 15px;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.youtube-notice {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 12px 15px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.youtube-notice p {
+  margin: 0;
+  color: #856404;
+  font-size: 0.9rem;
+}
+
+/* Download Tool Section Styles */
+.download-tool-section {
+  margin: 30px 0;
+  padding: 25px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #e8f0ff 100%);
+  border-radius: 15px;
+  border: 2px solid #667eea;
+  text-align: center;
+}
+
+.download-tool-section h3 {
+  color: #495057;
   margin-bottom: 20px;
   font-size: 1.3rem;
   font-weight: 600;
+}
+
+.tool-description {
+  margin-bottom: 25px;
+}
+
+.tool-description p {
+  color: #495057;
+  margin: 8px 0;
+  font-size: 1rem;
+}
+
+.download-tool-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.download-tool-btn {
+  display: inline-block;
+  padding: 20px 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.download-tool-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  color: white;
+  text-decoration: none;
+}
+
+.tool-info {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.tool-info p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6c757d;
+  background: white;
+  padding: 8px 12px;
+  border-radius: 15px;
+  border: 1px solid #dee2e6;
+}
+
+/* Tool Instructions Styles */
+.tool-instructions {
+  margin-top: 25px;
+  text-align: left;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.tool-instructions p {
+  color: #495057;
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.tool-instructions ol {
+  margin: 0;
+  padding-left: 20px;
+  color: #495057;
+  text-align: left;
+}
+
+.tool-instructions li {
+  margin: 10px 0;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.tool-instructions code {
+  background: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  color: #d73a49;
+  border: 1px solid #e1e4e8;
+}
+
+@media (max-width: 768px) {
+  .download-tool-wrapper {
+    gap: 15px;
+  }
+  
+  .download-tool-btn {
+    padding: 15px 30px;
+    font-size: 1rem;
+  }
+  
+  .tool-info {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .tool-instructions {
+    max-width: 100%;
+    padding: 0 10px;
+  }
 }
 
 .youtube-input-wrapper {

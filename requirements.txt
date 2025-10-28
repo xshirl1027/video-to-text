@@ -1,7 +1,10 @@
 # Python dependencies
 flask==2.3.3
 flask-cors==4.0.0
-yt-dlp==2023.10.13
+yt-dlp==2023.07.06
+urllib3==1.26.18
+certifi>=2023.7.22
+requests>=2.31.0
 
 # System dependencies (install separately):
 # brew install ffmpeg  # Required for yt-dlp audio extraction
