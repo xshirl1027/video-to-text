@@ -1,26 +1,7 @@
 {
-  "functions": {
-    "api/health.py": {
-      "runtime": "python3.9"
-    },
-    "api/extract-audio.py": {
-      "runtime": "python3.9",
-      "maxDuration": 300
-    },
-    "api/download-audio/[...params].py": {
-      "runtime": "python3.9",
-      "maxDuration": 60
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    }
-  ],
   "build": {
     "env": {
-      "PYTHON_VERSION": "3.9"
+      "NODE_VERSION": "18"
     }
   }
 }

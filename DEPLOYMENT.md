@@ -22,11 +22,11 @@ Due to the nature of YouTube processing (requires FFmpeg, file handling, longer 
 Update API URLs to use environment variables:
 
 ```javascript
-// In src/App.jsx, replace hardcoded URLs:
+// In src/App.jsx, API calls use:
 const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:5002';
 
-// Then use:
-fetch(`${API_BASE_URL}/api/extract-audio`, ...)
+// Frontend calls Railway backend:
+fetch(`${API_BASE_URL}/api/extract-video`, ...)
 ```
 
 ### 2. **Create Vercel Environment Variables**
