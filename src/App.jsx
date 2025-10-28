@@ -1216,7 +1216,7 @@ ${text}`;
         <div className="download-tool-section">
               <h3>YouTube Video Downloader</h3>
               <div className="tool-description">
-                <p>If you are struggling with youtube video downloads, please check out this github repo for a video downloading tool:</p>
+                <p>If you are struggling with downloading youtube videos, please check out this github repo for a video downloading tool:</p>
               </div>
               <div className="download-tool-wrapper">
                 <p>
