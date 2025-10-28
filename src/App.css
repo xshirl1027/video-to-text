@@ -373,12 +373,17 @@ h1 {
 
 .tool-description {
   margin-bottom: 25px;
+  text-align: center;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .tool-description p {
   color: #495057;
   margin: 8px 0;
   font-size: 1rem;
+  text-align: left;
 }
 
 .download-tool-wrapper {

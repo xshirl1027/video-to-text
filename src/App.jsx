@@ -1214,24 +1214,29 @@ ${text}`;
         )}
 
         <div className="download-tool-section">
-              <h3>YouTube Video Downloader </h3>
+              <h3>YouTube Video Downloader</h3>
+              <div className="tool-description">
+                <p>If you are struggling with youtube video downloads, please check out this github repo for a video downloading tool:</p>
+              </div>
               <div className="download-tool-wrapper">
-                <a 
-                  href="/youtube-downloader" 
-                  download="youtube-downloader"
-                  className="download-tool-btn"
-                >
-                  📥 Download YouTube Downloader Tool (20MB)
-                </a>
+                <p>
+                  <a 
+                    href="https://github.com/pH-7/Download-Simply-Videos-From-YouTube" 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{color: '#667eea', textDecoration: 'underline', fontSize: '1rem', fontWeight: '600'}}
+                  >
+                    Visit GitHub Repository: Download Simply Videos From YouTube
+                  </a>
+                </p>
               </div>
               <div className="tool-instructions">
                 <p><strong>How to use:</strong></p>
                 <ol>
-                  <li>Download the tool above</li>
-                  <li>Open Terminal and make it executable: <code>chmod +x ~/Downloads/youtube-downloader</code></li>
-                  <li>Run: <code>~/Downloads/youtube-downloader</code></li>
-                  <li>Follow the prompts to download YouTube videos</li>
-                  <li>Upload the downloaded video file above for transcription</li>
+                  <li>Visit the GitHub repository above</li>
+                  <li>Follow the installation instructions in the README</li>
+                  <li>Download your YouTube videos using the tool</li>
+                  <li>Upload the downloaded video files below for transcription</li>
                 </ol>
               </div>
             </div>
