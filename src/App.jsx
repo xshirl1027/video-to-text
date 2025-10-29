@@ -827,7 +827,7 @@ function App() {
         // Format starting timestamp as MM:SS
         const startMM = Math.floor(lastTimestampSeconds / 60).toString().padStart(2, '0');
         const startSS = (lastTimestampSeconds % 60).toString().padStart(2, '0');
-    const prompt = `Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing...\nIMPORTANT: This is a chunk of a longer audio file, not the full audio. The starting timestamp for this chunk is [${startMM}:${startSS}]. Add this offset to all timestamps in your transcription, so the first timestamp in this chunk should be [${startMM}:${startSS}] plus the time in the chunk. All timestamps must be cumulative from the beginning of the full audio. This ensures seamless transcription when all chunks are combined.`;
+        const prompt = `Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing...\nIMPORTANT: This is a chunk of a longer audio file, not the full audio. The starting timestamp for this chunk is [${startMM}:${startSS}]. Add this offset to all timestamps in your transcription, so the first timestamp in this chunk should be [${startMM}:${startSS}] plus the time in the chunk. All timestamps must be cumulative from the beginning of the full audio. This ensures seamless transcription when all chunks are combined.`;
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini API request timeout (60 seconds)')), 60000));
         const transcriptionPromise = model.generateContent([
           prompt,
@@ -838,6 +838,9 @@ function App() {
           const response = await result.response;
           let text = response.text();
           if (!text || text.trim().length === 0) {
+            // If chunk failed, add its duration to lastTimestampSeconds
+            const chunkDuration = await getAudioDuration(chunks[i]);
+            lastTimestampSeconds += Math.round(chunkDuration);
             emptyChunks.push(i + 1);
             continue; // Skip empty chunk
           }
@@ -852,12 +855,36 @@ function App() {
           }
           fullTranscription += (i > 0 ? '\n' : '') + text;
         } catch (chunkError) {
+          // If chunk failed, add its duration to lastTimestampSeconds
+          const chunkDuration = await getAudioDuration(chunks[i]);
+          lastTimestampSeconds += Math.round(chunkDuration);
           emptyChunks.push(i + 1);
           continue; // Skip failed chunk
         }
       }
+// Utility: Get duration of an audio Blob (in seconds)
+const getAudioDuration = (blob) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const url = URL.createObjectURL(blob);
+      const audio = new window.Audio();
+      audio.src = url;
+      audio.addEventListener('loadedmetadata', () => {
+        URL.revokeObjectURL(url);
+        resolve(audio.duration);
+      });
+      audio.addEventListener('error', (e) => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to get audio duration'));
+      });
+    } catch (err) {
+      reject(err);
+    }
+  });
+};
       if (emptyChunks.length > 0) {
-        alert(`Warning: ${emptyChunks.length} chunk(s) returned no transcription and were skipped. This may be due to silence or unsupported audio in those segments.`);
+        const segWord = emptyChunks.length === 1 ? 'segment' : 'segments';
+        alert(`Warning: ${emptyChunks.length} ${segWord} returned no transcription and were skipped. This may be due to silence or unsupported audio in those segments.`);
       }
       if (!fullTranscription.trim()) {
         throw new Error('No valid transcription was returned for any chunk.');
