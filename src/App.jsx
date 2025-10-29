@@ -507,7 +507,33 @@ function App() {
       ];
       
       ffmpeg.on('log', ({ message }) => {
-        if (messageRef.current) {
+        // Filter out unwanted FFmpeg messages that confuse users
+        const unwantedMessages = [
+          'aborted()',
+          'Aborted()',
+          'ABORT',
+          'abort',
+          'RuntimeError',
+          'wasm-function',
+          'at Object.',
+          'at FFmpeg.',
+          'at async',
+          'unreachable',
+          'asm.js',
+          'segfault'
+        ];
+        
+        // Only show meaningful progress messages to users
+        const shouldShow = message && 
+          !unwantedMessages.some(unwanted => message.includes(unwanted)) &&
+          (message.includes('frame=') || 
+           message.includes('time=') || 
+           message.includes('size=') || 
+           message.includes('speed=') ||
+           message.includes('bitrate=') ||
+           message.length < 200); // Keep short messages, filter very long technical ones
+        
+        if (messageRef.current && shouldShow) {
           messageRef.current.innerHTML = message;
         }
       });
