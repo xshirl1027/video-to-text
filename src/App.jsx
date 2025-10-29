@@ -785,7 +785,7 @@ function App() {
       throw new Error('Invalid API key. Please check your Gemini API key format.');
     }
 
-    setCurrentStep('Transcribing audio with Gemini AI...');
+    setCurrentStep('Sending audio to Gemini for processing...');
     try {
       const genAI = new GoogleGenerativeAI(apiKey.trim());
       const safetySettings = [
@@ -801,27 +801,21 @@ function App() {
       const chunks = audioBlob.size > 20 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
       let fullTranscription = '';
       for (let i = 0; i < chunks.length; i++) {
-        setCurrentStep(`Transcribing chunk ${i + 1} of ${chunks.length}...`);
+        // Only show a generic message, not chunk progress
+        setCurrentStep('Sending audio to Gemini for processing...');
         // Convert chunk to base64
         const base64Audio = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => {
             setTimeout(() => {
               try {
-                // Remove the data URL prefix (data:audio/mp3;base64,)
                 const base64 = reader.result.split(',')[1];
-                if (!base64 || base64.length === 0) {
-                  throw new Error('Failed to convert audio to base64');
-                }
+                if (!base64 || base64.length === 0) throw new Error('Failed to convert audio to base64');
                 resolve(base64);
-              } catch (error) {
-                reject(new Error(`Base64 conversion failed: ${error.message}`));
-              }
+              } catch (error) { reject(new Error(`Base64 conversion failed: ${error.message}`)); }
             }, 0);
           };
-          reader.onerror = () => {
-            reject(new Error('File reading failed'));
-          };
+          reader.onerror = () => { reject(new Error('File reading failed')); };
           reader.readAsDataURL(chunks[i]);
         });
         const prompt = "Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing... Provide accurate timestamps for each segment of speech.";
