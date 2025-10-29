@@ -803,7 +803,11 @@ function App() {
       let emptyChunks = [];
       let lastTimestampSeconds = 0;
       for (let i = 0; i < chunks.length; i++) {
-        setCurrentStep('Sending audio to Gemini for processing...');
+        if (chunks.length > 1) {
+          setCurrentStep(`Processing audio: ${Math.round(((i + 1) / chunks.length) * 100)}% complete`);
+        } else {
+          setCurrentStep('Sending audio to Gemini for processing...');
+        }
         // Convert chunk to base64
         const base64Audio = await new Promise((resolve, reject) => {
           const reader = new FileReader();
