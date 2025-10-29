@@ -800,8 +800,10 @@ function App() {
       const chunkSizeBytes = 10 * 1024 * 1024; // 10MB per chunk
       const chunks = audioBlob.size > 20 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
       let fullTranscription = '';
-      let lastTimestampSeconds = 0;
+      let cumulativeSeconds = 0;
       const timestampRegex = /\[(\d{1,2}):(\d{2})\]/g;
+      // MP3 bitrate: 48kbps = 6000 bytes/sec (from ffmpeg settings)
+      const bytesPerSecond = 6000;
       for (let i = 0; i < chunks.length; i++) {
         setCurrentStep('Sending audio to Gemini for processing...');
         // Convert chunk to base64
@@ -834,22 +836,14 @@ function App() {
           }
           // Adjust timestamps in this chunk
           let adjustedText = text.replace(timestampRegex, (match, mm, ss) => {
-            let seconds = parseInt(mm, 10) * 60 + parseInt(ss, 10) + lastTimestampSeconds;
+            let seconds = parseInt(mm, 10) * 60 + parseInt(ss, 10) + cumulativeSeconds;
             let newMM = Math.floor(seconds / 60).toString().padStart(2, '0');
             let newSS = (seconds % 60).toString().padStart(2, '0');
             return `[${newMM}:${newSS}]`;
           });
-          // Find last timestamp in this chunk
-          let lastMatch;
-          let regex = new RegExp(timestampRegex);
-          let maxSeconds = 0;
-          while ((lastMatch = regex.exec(text)) !== null) {
-            let mm = parseInt(lastMatch[1], 10);
-            let ss = parseInt(lastMatch[2], 10);
-            let total = mm * 60 + ss;
-            if (total > maxSeconds) maxSeconds = total;
-          }
-          lastTimestampSeconds += maxSeconds;
+          // Estimate duration of this chunk
+          let chunkDuration = Math.round(chunks[i].size / bytesPerSecond);
+          cumulativeSeconds += chunkDuration;
           fullTranscription += (i > 0 ? '\n' : '') + adjustedText;
         } catch (chunkError) {
           throw new Error(`Chunk ${i + 1} failed: ${chunkError.message}`);
