@@ -796,12 +796,11 @@ function App() {
       ];
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", safetySettings });
 
-      // Chunking logic: split audio if > 20MB
-      const chunkSizeBytes = 10 * 1024 * 1024; // 10MB per chunk
-      const chunks = audioBlob.size > 20 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
+      // Chunking logic: split audio if > 80MB, 50MB per chunk
+      const chunkSizeBytes = 50 * 1024 * 1024; // 50MB per chunk
+      const chunks = audioBlob.size > 80 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
       let fullTranscription = '';
       for (let i = 0; i < chunks.length; i++) {
-        // Only show a generic message, not chunk progress
         setCurrentStep('Sending audio to Gemini for processing...');
         // Convert chunk to base64
         const base64Audio = await new Promise((resolve, reject) => {
