@@ -799,11 +799,16 @@ function App() {
       // Chunking logic: split audio if > 80MB, 10MB per chunk
       const chunkSizeBytes = 10 * 1024 * 1024; // 10MB per chunk
       const chunks = audioBlob.size > 80 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
-  let fullTranscription = '';
-  let emptyChunks = [];
-  let lastTimestampSeconds = 0;
-  for (let i = 0; i < chunks.length; i++) {
-        setCurrentStep(chunks.length > 1 ? `Processing audio: ${Math.round(((i + 1) / chunks.length) * 100)}% complete` : 'Sending audio to Gemini for processing...');
+      let fullTranscription = '';
+      let emptyChunks = [];
+      let lastTimestampSeconds = 0;
+      for (let i = 0; i < chunks.length; i++) {
+        if (chunks.length > 1) {
+          const percent = Math.round(((i + 1) / chunks.length) * 100);
+          setCurrentStep(`Processing audio: ${percent}% complete`);
+        } else {
+          setCurrentStep('Sending audio to Gemini for processing...');
+        }
         // Convert chunk to base64
         const base64Audio = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -819,14 +824,10 @@ function App() {
           reader.onerror = () => { reject(new Error('File reading failed')); };
           reader.readAsDataURL(chunks[i]);
         });
-        // Format starting timestamp as MM:SS or HH:MM:SS
-        let startHH = Math.floor(lastTimestampSeconds / 3600);
-        let startMM = Math.floor((lastTimestampSeconds % 3600) / 60);
-        let startSS = lastTimestampSeconds % 60;
-        let startTimestamp = startHH > 0
-          ? `${startHH.toString().padStart(2, '0')}:${startMM.toString().padStart(2, '0')}:${startSS.toString().padStart(2, '0')}`
-          : `${startMM.toString().padStart(2, '0')}:${startSS.toString().padStart(2, '0')}`;
-        const prompt = `Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] or [HH:MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [01:04:50] Today we'll be discussing...\nIMPORTANT: This is a chunk of a longer audio file, not the full audio. The starting timestamp for this chunk is [${startTimestamp}]. Add this offset to all timestamps in your transcription, so the first timestamp in this chunk should be [${startTimestamp}] plus the time in the chunk. All timestamps must be cumulative from the beginning of the full audio. This ensures seamless transcription when all chunks are combined.`;
+        // Format starting timestamp as MM:SS
+        const startMM = Math.floor(lastTimestampSeconds / 60).toString().padStart(2, '0');
+        const startSS = (lastTimestampSeconds % 60).toString().padStart(2, '0');
+    const prompt = `Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing...\nIMPORTANT: This is a chunk of a longer audio file, not the full audio. The starting timestamp for this chunk is [${startMM}:${startSS}]. Add this offset to all timestamps in your transcription, so the first timestamp in this chunk should be [${startMM}:${startSS}] plus the time in the chunk. All timestamps must be cumulative from the beginning of the full audio. This ensures seamless transcription when all chunks are combined.`;
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini API request timeout (60 seconds)')), 60000));
         const transcriptionPromise = model.generateContent([
           prompt,
@@ -837,46 +838,17 @@ function App() {
           const response = await result.response;
           let text = response.text();
           if (!text || text.trim().length === 0) {
-            // If chunk is empty, ask Gemini for duration
-            const durationPrompt = `This is a chunk of audio that could not be transcribed. Please estimate the duration in seconds of the following audio file. Respond ONLY with a number (the duration in seconds).`;
-            const durationPromise = model.generateContent([
-              durationPrompt,
-              { inlineData: { mimeType: "audio/mp3", data: base64Audio } }
-            ]);
-            try {
-              const durationResult = await Promise.race([durationPromise, timeoutPromise]);
-              const durationText = durationResult.response.text();
-              const estimatedDuration = parseInt(durationText.trim());
-              if (!isNaN(estimatedDuration) && estimatedDuration > 0) {
-                lastTimestampSeconds += estimatedDuration;
-              }
-            } catch (durationError) {
-              // If Gemini fails, skip and use previous timestamp
-            }
             emptyChunks.push(i + 1);
             continue; // Skip empty chunk
           }
           // Find last timestamp in this chunk for next chunk
-          // Support [HH:MM:SS] and [MM:SS]
-          const timestampRegex = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
+          const timestampRegex = /\[(\d{1,2}):(\d{2})\]/g;
           let allTimestamps = Array.from(text.matchAll(timestampRegex));
           if (allTimestamps.length > 0) {
             let last = allTimestamps[allTimestamps.length - 1];
-            let lastHH = last[3] ? parseInt(last[1]) : 0;
-            let lastMM = last[3] ? parseInt(last[2]) : parseInt(last[1]);
-            let lastSS = last[3] ? parseInt(last[3]) : parseInt(last[2]);
-            lastTimestampSeconds = lastHH * 3600 + lastMM * 60 + lastSS;
-          } else {
-            // Fallback: try to extract timestamp from last line
-            const lines = text.trim().split('\n');
-            const lastLine = lines[lines.length - 1];
-            const fallbackMatch = lastLine.match(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/);
-            if (fallbackMatch) {
-              let lastHH = fallbackMatch[3] ? parseInt(fallbackMatch[1]) : 0;
-              let lastMM = fallbackMatch[3] ? parseInt(fallbackMatch[2]) : parseInt(fallbackMatch[1]);
-              let lastSS = fallbackMatch[3] ? parseInt(fallbackMatch[3]) : parseInt(fallbackMatch[2]);
-              lastTimestampSeconds = lastHH * 3600 + lastMM * 60 + lastSS;
-            }
+            let lastMM = parseInt(last[1]);
+            let lastSS = parseInt(last[2]);
+            lastTimestampSeconds = lastMM * 60 + lastSS;
           }
           fullTranscription += (i > 0 ? '\n' : '') + text;
         } catch (chunkError) {
