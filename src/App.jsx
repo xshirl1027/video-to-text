@@ -802,7 +802,6 @@ function App() {
       let fullTranscription = '';
       let emptyChunks = [];
       let lastTimestampSeconds = 0;
-      const timestampRegex = /\[(\d{1,2}):(\d{2})\]/g;
       for (let i = 0; i < chunks.length; i++) {
         setCurrentStep('Sending audio to Gemini for processing...');
         // Convert chunk to base64
@@ -820,7 +819,10 @@ function App() {
           reader.onerror = () => { reject(new Error('File reading failed')); };
           reader.readAsDataURL(chunks[i]);
         });
-        const prompt = "Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing... Provide accurate timestamps for each segment of speech.";
+        // Format starting timestamp as MM:SS
+        const startMM = Math.floor(lastTimestampSeconds / 60).toString().padStart(2, '0');
+        const startSS = (lastTimestampSeconds % 60).toString().padStart(2, '0');
+    const prompt = `Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing...\nIMPORTANT: This is a chunk of a longer audio file, not the full audio. The starting timestamp for this chunk is [${startMM}:${startSS}]. Add this offset to all timestamps in your transcription, so the first timestamp in this chunk should be [${startMM}:${startSS}] plus the time in the chunk. All timestamps must be cumulative from the beginning of the full audio. This ensures seamless transcription when all chunks are combined.`;
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini API request timeout (60 seconds)')), 60000));
         const transcriptionPromise = model.generateContent([
           prompt,
@@ -834,22 +836,16 @@ function App() {
             emptyChunks.push(i + 1);
             continue; // Skip empty chunk
           }
-          // Adjust timestamps in this chunk
-          let adjustedText = text.replace(timestampRegex, (match, mm, ss) => {
-            let seconds = parseInt(mm) * 60 + parseInt(ss) + lastTimestampSeconds;
-            let newMM = Math.floor(seconds / 60).toString().padStart(2, '0');
-            let newSS = (seconds % 60).toString().padStart(2, '0');
-            return `[${newMM}:${newSS}]`;
-          });
           // Find last timestamp in this chunk for next chunk
+          const timestampRegex = /\[(\d{1,2}):(\d{2})\]/g;
           let allTimestamps = Array.from(text.matchAll(timestampRegex));
           if (allTimestamps.length > 0) {
             let last = allTimestamps[allTimestamps.length - 1];
             let lastMM = parseInt(last[1]);
             let lastSS = parseInt(last[2]);
-            lastTimestampSeconds += lastMM * 60 + lastSS;
+            lastTimestampSeconds = lastMM * 60 + lastSS;
           }
-          fullTranscription += (i > 0 ? '\n' : '') + adjustedText;
+          fullTranscription += (i > 0 ? '\n' : '') + text;
         } catch (chunkError) {
           emptyChunks.push(i + 1);
           continue; // Skip failed chunk
