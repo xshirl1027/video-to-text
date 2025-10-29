@@ -842,11 +842,14 @@ function App() {
           // Find last timestamp in this chunk
           let lastMatch;
           let regex = new RegExp(timestampRegex);
+          let maxSeconds = 0;
           while ((lastMatch = regex.exec(text)) !== null) {
             let mm = parseInt(lastMatch[1], 10);
             let ss = parseInt(lastMatch[2], 10);
-            lastTimestampSeconds = mm * 60 + ss + lastTimestampSeconds;
+            let total = mm * 60 + ss;
+            if (total > maxSeconds) maxSeconds = total;
           }
+          lastTimestampSeconds += maxSeconds;
           fullTranscription += (i > 0 ? '\n' : '') + adjustedText;
         } catch (chunkError) {
           throw new Error(`Chunk ${i + 1} failed: ${chunkError.message}`);
