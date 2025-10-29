@@ -800,8 +800,9 @@ function App() {
       const chunkSizeBytes = 10 * 1024 * 1024; // 10MB per chunk
       const chunks = audioBlob.size > 20 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
       let fullTranscription = '';
+      let lastTimestampSeconds = 0;
+      const timestampRegex = /\[(\d{1,2}):(\d{2})\]/g;
       for (let i = 0; i < chunks.length; i++) {
-        // Only show a generic message, not chunk progress
         setCurrentStep('Sending audio to Gemini for processing...');
         // Convert chunk to base64
         const base64Audio = await new Promise((resolve, reject) => {
@@ -827,11 +828,26 @@ function App() {
         try {
           const result = await Promise.race([transcriptionPromise, timeoutPromise]);
           const response = await result.response;
-          const text = response.text();
+          let text = response.text();
           if (!text || text.trim().length === 0) {
             throw new Error('Gemini API returned empty transcription. The audio might be too quiet or contain no speech.');
           }
-          fullTranscription += (i > 0 ? '\n' : '') + text;
+          // Adjust timestamps in this chunk
+          let adjustedText = text.replace(timestampRegex, (match, mm, ss) => {
+            let seconds = parseInt(mm, 10) * 60 + parseInt(ss, 10) + lastTimestampSeconds;
+            let newMM = Math.floor(seconds / 60).toString().padStart(2, '0');
+            let newSS = (seconds % 60).toString().padStart(2, '0');
+            return `[${newMM}:${newSS}]`;
+          });
+          // Find last timestamp in this chunk
+          let lastMatch;
+          let regex = new RegExp(timestampRegex);
+          while ((lastMatch = regex.exec(text)) !== null) {
+            let mm = parseInt(lastMatch[1], 10);
+            let ss = parseInt(lastMatch[2], 10);
+            lastTimestampSeconds = mm * 60 + ss + lastTimestampSeconds;
+          }
+          fullTranscription += (i > 0 ? '\n' : '') + adjustedText;
         } catch (chunkError) {
           throw new Error(`Chunk ${i + 1} failed: ${chunkError.message}`);
         }
