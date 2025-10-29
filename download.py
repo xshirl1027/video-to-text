@@ -177,16 +177,13 @@ def download_single_video(url: str, output_path: str, thread_id: int = 0, audio_
     if audio_only:
         # Configure for audio-only MP3 downloads
         format_selector = 'bestaudio/best'
-        file_extension = ''  # No extension in output template
+        file_extension = 'mp3'
         postprocessors = [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }]
         print(f"🎵 [Thread {thread_id}] Audio-only mode: Downloading MP3...")
-        # Remove double .mp3 extension if present in output template
-        def fix_mp3_extension(path):
-            return re.sub(r'\.mp3\.mp3$', '.mp3', path)
     else:
         # Configure for video downloads
         format_selector = (
@@ -233,33 +230,18 @@ def download_single_video(url: str, output_path: str, thread_id: int = 0, audio_
         print(f"🔍 [Debug] URL analysis: {content_type.title()}")
 
     if content_type == 'playlist':
-        if audio_only:
-            outtmpl = os.path.join(
-                output_path, '%(playlist_title)s', f'%(playlist_index)s-%(title)s')
-        else:
-            outtmpl = os.path.join(
-                output_path, '%(playlist_title)s', f'%(playlist_index)s-%(title)s.{file_extension}')
-        ydl_opts['outtmpl'] = outtmpl
+        ydl_opts['outtmpl'] = os.path.join(
+            output_path, '%(playlist_title)s', f'%(playlist_index)s-%(title)s.{file_extension}')
         print(
             f"📋 [Thread {thread_id}] Detected playlist URL. Downloading entire playlist...")
     elif content_type == 'channel':
-        if audio_only:
-            outtmpl = os.path.join(
-                output_path, '%(uploader)s', f'%(upload_date)s-%(title)s')
-        else:
-            outtmpl = os.path.join(
-                output_path, '%(uploader)s', f'%(upload_date)s-%(title)s.{file_extension}')
-        ydl_opts['outtmpl'] = outtmpl
+        ydl_opts['outtmpl'] = os.path.join(
+            output_path, '%(uploader)s', f'%(upload_date)s-%(title)s.{file_extension}')
         print(
             f"📺 [Thread {thread_id}] Detected channel URL. Downloading entire channel...")
     else:  # single video
-        if audio_only:
-            outtmpl = os.path.join(
-                output_path, f'%(title)s')
-        else:
-            outtmpl = os.path.join(
-                output_path, f'%(title)s.{file_extension}')
-        ydl_opts['outtmpl'] = outtmpl
+        ydl_opts['outtmpl'] = os.path.join(
+            output_path, f'%(title)s.{file_extension}')
         print(
             f"🎥 [Thread {thread_id}] Detected single video URL. Downloading {'audio' if audio_only else 'video'}...")
 

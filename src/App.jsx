@@ -796,19 +796,13 @@ function App() {
       ];
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", safetySettings });
 
-      // Chunking logic: split audio if > 80MB, 10MB per chunk
+      // Chunking logic: split audio if > 20MB
       const chunkSizeBytes = 10 * 1024 * 1024; // 10MB per chunk
-      const chunks = audioBlob.size > 80 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
+      const chunks = audioBlob.size > 20 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
       let fullTranscription = '';
-      let emptyChunks = [];
-      let lastTimestampSeconds = 0;
       for (let i = 0; i < chunks.length; i++) {
-        if (chunks.length > 1) {
-          const percent = Math.round(((i + 1) / chunks.length) * 100);
-          setCurrentStep(`Processing audio: ${percent}% complete`);
-        } else {
-          setCurrentStep('Sending audio to Gemini for processing...');
-        }
+        // Only show a generic message, not chunk progress
+        setCurrentStep('Sending audio to Gemini for processing...');
         // Convert chunk to base64
         const base64Audio = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -824,10 +818,7 @@ function App() {
           reader.onerror = () => { reject(new Error('File reading failed')); };
           reader.readAsDataURL(chunks[i]);
         });
-        // Format starting timestamp as MM:SS
-        const startMM = Math.floor(lastTimestampSeconds / 60).toString().padStart(2, '0');
-        const startSS = (lastTimestampSeconds % 60).toString().padStart(2, '0');
-        const prompt = `Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing...\nIMPORTANT: This is a chunk of a longer audio file, not the full audio. The starting timestamp for this chunk is [${startMM}:${startSS}]. Add this offset to all timestamps in your transcription, so the first timestamp in this chunk should be [${startMM}:${startSS}] plus the time in the chunk. All timestamps must be cumulative from the beginning of the full audio. This ensures seamless transcription when all chunks are combined.`;
+        const prompt = "Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing... Provide accurate timestamps for each segment of speech.";
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini API request timeout (60 seconds)')), 60000));
         const transcriptionPromise = model.generateContent([
           prompt,
@@ -836,58 +827,14 @@ function App() {
         try {
           const result = await Promise.race([transcriptionPromise, timeoutPromise]);
           const response = await result.response;
-          let text = response.text();
+          const text = response.text();
           if (!text || text.trim().length === 0) {
-            // If chunk failed, add its duration to lastTimestampSeconds
-            const chunkDuration = await getAudioDuration(chunks[i]);
-            lastTimestampSeconds += Math.round(chunkDuration);
-            emptyChunks.push(i + 1);
-            continue; // Skip empty chunk
-          }
-          // Find last timestamp in this chunk for next chunk
-          const timestampRegex = /\[(\d{1,2}):(\d{2})\]/g;
-          let allTimestamps = Array.from(text.matchAll(timestampRegex));
-          if (allTimestamps.length > 0) {
-            let last = allTimestamps[allTimestamps.length - 1];
-            let lastMM = parseInt(last[1]);
-            let lastSS = parseInt(last[2]);
-            lastTimestampSeconds = lastMM * 60 + lastSS;
+            throw new Error('Gemini API returned empty transcription. The audio might be too quiet or contain no speech.');
           }
           fullTranscription += (i > 0 ? '\n' : '') + text;
         } catch (chunkError) {
-          // If chunk failed, add its duration to lastTimestampSeconds
-          const chunkDuration = await getAudioDuration(chunks[i]);
-          lastTimestampSeconds += Math.round(chunkDuration);
-          emptyChunks.push(i + 1);
-          continue; // Skip failed chunk
+          throw new Error(`Chunk ${i + 1} failed: ${chunkError.message}`);
         }
-      }
-// Utility: Get duration of an audio Blob (in seconds)
-const getAudioDuration = (blob) => {
-  return new Promise((resolve, reject) => {
-    try {
-      const url = URL.createObjectURL(blob);
-      const audio = new window.Audio();
-      audio.src = url;
-      audio.addEventListener('loadedmetadata', () => {
-        URL.revokeObjectURL(url);
-        resolve(audio.duration);
-      });
-      audio.addEventListener('error', (e) => {
-        URL.revokeObjectURL(url);
-        reject(new Error('Failed to get audio duration'));
-      });
-    } catch (err) {
-      reject(err);
-    }
-  });
-};
-      if (emptyChunks.length > 0) {
-        const segWord = emptyChunks.length === 1 ? 'segment' : 'segments';
-        alert(`Warning: ${emptyChunks.length} ${segWord} returned no transcription and were skipped. This may be due to silence or unsupported audio in those segments.`);
-      }
-      if (!fullTranscription.trim()) {
-        throw new Error('No valid transcription was returned for any chunk.');
       }
       return fullTranscription;
     } catch (error) {
