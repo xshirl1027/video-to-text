@@ -1229,8 +1229,8 @@ ${text}`;
               <div className="tool-instructions">
                 <p><strong>How to use:</strong></p>
             <ol>
-                  <li>Download Git https://git-scm.com/install/</li>
-                  <li>Download Python https://www.python.org/downloads/</li>
+                  <li>Download Git <a href="https://git-scm.com/install/" target="_blank" rel="noopener noreferrer">https://git-scm.com/install/</a></li>
+                  <li>Download Python <a href="https://www.python.org/downloads/" target="_blank" rel="noopener noreferrer">https://www.python.org/downloads/</a></li>
                   <li>Visit the GitHub repository above</li>
                   <li>Follow the installation instructions in the README</li>
                   <li>Download your YouTube videos using the tool</li>
