@@ -346,17 +346,14 @@ function App() {
       return;
     }
     
-    // Reduced max file size to prevent memory issues and stack overflow
-    const maxSizeMB = 50;
+    // Show warning for large files but allow upload
     const fileSizeMB = file.size / 1024 / 1024;
     
-    if (fileSizeMB > maxSizeMB) {
-      alert(`File is too large (${fileSizeMB.toFixed(1)}MB). Please select a file smaller than ${maxSizeMB}MB to prevent memory issues and ensure stable processing.`);
-      return;
-    }
-    
-    if (fileSizeMB > 20) {
-      const proceed = confirm(`This is a large file (${fileSizeMB.toFixed(1)}MB). Processing may take several minutes and use significant memory. For files over 10MB, we recommend using shorter video clips to prevent errors. Do you want to continue?`);
+    if (fileSizeMB > 100) {
+      const proceed = confirm(`This is a very large file (${fileSizeMB.toFixed(1)}MB). Processing may take a long time and use significant memory. Large files may cause browser crashes or timeouts. Do you want to continue?`);
+      if (!proceed) return;
+    } else if (fileSizeMB > 50) {
+      const proceed = confirm(`This is a large file (${fileSizeMB.toFixed(1)}MB). Processing may take several minutes and use significant memory. Do you want to continue?`);
       if (!proceed) return;
     }
     
@@ -378,12 +375,11 @@ function App() {
         return;
       }
       
-      const maxSizeMB = 25;
       const fileSizeMB = file.size / 1024 / 1024;
       
-      if (fileSizeMB > maxSizeMB) {
-        alert(`Audio file is too large (${fileSizeMB.toFixed(1)}MB). Please select a file smaller than ${maxSizeMB}MB.`);
-        return;
+      if (fileSizeMB > 50) {
+        const proceed = confirm(`This is a large audio file (${fileSizeMB.toFixed(1)}MB). Processing may take several minutes and use significant memory. Do you want to continue?`);
+        if (!proceed) return;
       }
       
       setSelectedFile(file);
@@ -1232,7 +1228,9 @@ ${text}`;
               </div>
               <div className="tool-instructions">
                 <p><strong>How to use:</strong></p>
-                <ol>
+            <ol>
+                  <li>Download Git https://git-scm.com/install/</li>
+                  <li>Download Python https://www.python.org/downloads/</li>
                   <li>Visit the GitHub repository above</li>
                   <li>Follow the installation instructions in the README</li>
                   <li>Download your YouTube videos using the tool</li>
