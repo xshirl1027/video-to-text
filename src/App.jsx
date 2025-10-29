@@ -796,10 +796,13 @@ function App() {
       ];
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", safetySettings });
 
-      // Chunking logic: split audio if > 80MB, 50MB per chunk
-      const chunkSizeBytes = 50 * 1024 * 1024; // 50MB per chunk
+      // Chunking logic: split audio if > 80MB, 10MB per chunk
+      const chunkSizeBytes = 10 * 1024 * 1024; // 10MB per chunk
       const chunks = audioBlob.size > 80 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
       let fullTranscription = '';
+      let emptyChunks = [];
+      let lastTimestampSeconds = 0;
+      const timestampRegex = /\[(\d{1,2}):(\d{2})\]/g;
       for (let i = 0; i < chunks.length; i++) {
         setCurrentStep('Sending audio to Gemini for processing...');
         // Convert chunk to base64
@@ -826,14 +829,37 @@ function App() {
         try {
           const result = await Promise.race([transcriptionPromise, timeoutPromise]);
           const response = await result.response;
-          const text = response.text();
+          let text = response.text();
           if (!text || text.trim().length === 0) {
-            throw new Error('Gemini API returned empty transcription. The audio might be too quiet or contain no speech.');
+            emptyChunks.push(i + 1);
+            continue; // Skip empty chunk
           }
-          fullTranscription += (i > 0 ? '\n' : '') + text;
+          // Adjust timestamps in this chunk
+          let adjustedText = text.replace(timestampRegex, (match, mm, ss) => {
+            let seconds = parseInt(mm) * 60 + parseInt(ss) + lastTimestampSeconds;
+            let newMM = Math.floor(seconds / 60).toString().padStart(2, '0');
+            let newSS = (seconds % 60).toString().padStart(2, '0');
+            return `[${newMM}:${newSS}]`;
+          });
+          // Find last timestamp in this chunk for next chunk
+          let allTimestamps = Array.from(text.matchAll(timestampRegex));
+          if (allTimestamps.length > 0) {
+            let last = allTimestamps[allTimestamps.length - 1];
+            let lastMM = parseInt(last[1]);
+            let lastSS = parseInt(last[2]);
+            lastTimestampSeconds += lastMM * 60 + lastSS;
+          }
+          fullTranscription += (i > 0 ? '\n' : '') + adjustedText;
         } catch (chunkError) {
-          throw new Error(`Chunk ${i + 1} failed: ${chunkError.message}`);
+          emptyChunks.push(i + 1);
+          continue; // Skip failed chunk
         }
+      }
+      if (emptyChunks.length > 0) {
+        alert(`Warning: ${emptyChunks.length} chunk(s) returned no transcription and were skipped. This may be due to silence or unsupported audio in those segments.`);
+      }
+      if (!fullTranscription.trim()) {
+        throw new Error('No valid transcription was returned for any chunk.');
       }
       return fullTranscription;
     } catch (error) {
