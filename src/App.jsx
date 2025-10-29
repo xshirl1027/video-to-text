@@ -804,7 +804,8 @@ function App() {
       let lastTimestampSeconds = 0;
       for (let i = 0; i < chunks.length; i++) {
         if (chunks.length > 1) {
-          setCurrentStep(`Processing audio: ${Math.round(((i + 1) / chunks.length) * 100)}% complete`);
+          const percent = i === 0 ? 0 : Math.round(((i + 1) / chunks.length) * 100);
+          setCurrentStep(`Processing audio: ${percent}% complete`);
         } else {
           setCurrentStep('Sending audio to Gemini for processing...');
         }
