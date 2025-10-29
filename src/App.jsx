@@ -764,6 +764,18 @@ function App() {
     }
   };
 
+  // Utility: Split a Blob into chunks of given size (bytes)
+  const splitBlobIntoChunks = (blob, chunkSizeBytes) => {
+    const chunks = [];
+    let offset = 0;
+    while (offset < blob.size) {
+      const end = Math.min(offset + chunkSizeBytes, blob.size);
+      chunks.push(blob.slice(offset, end));
+      offset = end;
+    }
+    return chunks;
+  };
+
   const transcribeWithGemini = async (audioBlob) => {
     if (!apiKey) {
       throw new Error('Please provide a Gemini API key');
@@ -774,43 +786,26 @@ function App() {
     }
 
     setCurrentStep('Transcribing audio with Gemini AI...');
-    
     try {
-      // Test API key validity first
       const genAI = new GoogleGenerativeAI(apiKey.trim());
-      
-      // Safety settings to allow all content including violence and sexual content
       const safetySettings = [
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
       ];
-      
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
-        safetySettings: safetySettings
-      });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", safetySettings });
 
-      // Convert blob to base64 using chunked processing to avoid stack overflow
-      const base64Audio = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        
-        reader.onload = () => {
-          try {
-            // Use setTimeout to break the call stack and prevent stack overflow
+      // Chunking logic: split audio if > 20MB
+      const chunkSizeBytes = 10 * 1024 * 1024; // 10MB per chunk
+      const chunks = audioBlob.size > 20 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
+      let fullTranscription = '';
+      for (let i = 0; i < chunks.length; i++) {
+        setCurrentStep(`Transcribing chunk ${i + 1} of ${chunks.length}...`);
+        // Convert chunk to base64
+        const base64Audio = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
             setTimeout(() => {
               try {
                 // Remove the data URL prefix (data:audio/mp3;base64,)
@@ -823,65 +818,39 @@ function App() {
                 reject(new Error(`Base64 conversion failed: ${error.message}`));
               }
             }, 0);
-          } catch (error) {
-            reject(new Error(`File reading failed: ${error.message}`));
+          };
+          reader.onerror = () => {
+            reject(new Error('File reading failed'));
+          };
+          reader.readAsDataURL(chunks[i]);
+        });
+        const prompt = "Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing... Provide accurate timestamps for each segment of speech.";
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini API request timeout (60 seconds)')), 60000));
+        const transcriptionPromise = model.generateContent([
+          prompt,
+          { inlineData: { mimeType: "audio/mp3", data: base64Audio } }
+        ]);
+        try {
+          const result = await Promise.race([transcriptionPromise, timeoutPromise]);
+          const response = await result.response;
+          const text = response.text();
+          if (!text || text.trim().length === 0) {
+            throw new Error('Gemini API returned empty transcription. The audio might be too quiet or contain no speech.');
           }
-        };
-        
-        reader.onerror = () => {
-          reject(new Error('File reading failed'));
-        };
-        
-        // Add progress tracking for large files
-        reader.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const percentLoaded = Math.round((event.loaded / event.total) * 100);
-            setCurrentStep(`Converting audio to base64... ${percentLoaded}%`);
-          }
-        };
-        
-        reader.readAsDataURL(audioBlob);
-      });
-
-      setCurrentStep('Sending to Gemini AI for transcription...');
-
-      const prompt = "Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing... Provide accurate timestamps for each segment of speech.";
-      
-      // Add timeout for API call
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Gemini API request timeout (60 seconds)')), 60000)
-      );
-      
-      const transcriptionPromise = model.generateContent([
-        prompt,
-        {
-          inlineData: {
-            mimeType: "audio/mp3",
-            data: base64Audio
-          }
+          fullTranscription += (i > 0 ? '\n' : '') + text;
+        } catch (chunkError) {
+          throw new Error(`Chunk ${i + 1} failed: ${chunkError.message}`);
         }
-      ]);
-      
-      const result = await Promise.race([transcriptionPromise, timeoutPromise]);
-      const response = await result.response;
-      const text = response.text();
-      
-      if (!text || text.trim().length === 0) {
-        throw new Error('Gemini API returned empty transcription. The audio might be too quiet or contain no speech.');
       }
-      
-      return text;
-      
+      return fullTranscription;
     } catch (error) {
       console.error('Gemini API error:', error);
-      
-      // Provide specific error messages for different scenarios
       if (error.message.includes('API key')) {
         throw new Error('Invalid API key. Please check your Gemini API key and try again.');
       } else if (error.message.includes('quota') || error.message.includes('limit')) {
         throw new Error('API quota exceeded. You have reached your Gemini API usage limit.');
       } else if (error.message.includes('timeout')) {
-        throw new Error('Request timeout. The transcription took too long. Try with a shorter audio file.');
+        throw new Error('Request timeout. The transcription took too long. Try with a shorter audio file or reduce chunk size.');
       } else if (error.message.includes('network') || error.message.includes('fetch')) {
         throw new Error('Network error connecting to Gemini API. Please check your internet connection and try again.');
       } else if (error.message.includes('CORS')) {
