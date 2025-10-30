@@ -800,11 +800,8 @@ function App() {
       const chunkSizeBytes = 10 * 1024 * 1024; // 10MB per chunk
       const chunks = audioBlob.size > 20 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
       let fullTranscription = '';
-      let cumulativeSeconds = 0;
-      const timestampRegex = /\[(\d{1,2}):(\d{2})\]/g;
-      // MP3 bitrate: 48kbps = 6000 bytes/sec (from ffmpeg settings)
-      const bytesPerSecond = 6000;
       for (let i = 0; i < chunks.length; i++) {
+        // Only show a generic message, not chunk progress
         setCurrentStep('Sending audio to Gemini for processing...');
         // Convert chunk to base64
         const base64Audio = await new Promise((resolve, reject) => {
@@ -830,21 +827,11 @@ function App() {
         try {
           const result = await Promise.race([transcriptionPromise, timeoutPromise]);
           const response = await result.response;
-          let text = response.text();
+          const text = response.text();
           if (!text || text.trim().length === 0) {
             throw new Error('Gemini API returned empty transcription. The audio might be too quiet or contain no speech.');
           }
-          // Adjust timestamps in this chunk
-          let adjustedText = text.replace(timestampRegex, (match, mm, ss) => {
-            let seconds = parseInt(mm, 10) * 60 + parseInt(ss, 10) + cumulativeSeconds;
-            let newMM = Math.floor(seconds / 60).toString().padStart(2, '0');
-            let newSS = (seconds % 60).toString().padStart(2, '0');
-            return `[${newMM}:${newSS}]`;
-          });
-          // Estimate duration of this chunk
-          let chunkDuration = Math.round(chunks[i].size / bytesPerSecond);
-          cumulativeSeconds += chunkDuration;
-          fullTranscription += (i > 0 ? '\n' : '') + adjustedText;
+          fullTranscription += (i > 0 ? '\n' : '') + text;
         } catch (chunkError) {
           throw new Error(`Chunk ${i + 1} failed: ${chunkError.message}`);
         }
