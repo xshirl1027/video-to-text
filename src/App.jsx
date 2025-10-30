@@ -776,6 +776,32 @@ function App() {
     return chunks;
   };
 
+  // Utility: Offset all timestamps in transcript by offsetSeconds
+  const offsetTranscriptTimestamps = (transcript, offsetSeconds) => {
+    return transcript.replace(/\[(\d{1,2}):(\d{2})\]/g, (match, mm, ss) => {
+      const totalSeconds = parseInt(mm, 10) * 60 + parseInt(ss, 10) + offsetSeconds;
+      const newMM = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+      const newSS = (totalSeconds % 60).toString().padStart(2, '0');
+      return `[${newMM}:${newSS}]`;
+    });
+  };
+
+  // Utility: Get total duration of an audio blob
+  const getAudioDuration = (audioBlob) => {
+    return new Promise((resolve) => {
+      const audio = document.createElement('audio');
+      audio.preload = 'metadata';
+      audio.src = URL.createObjectURL(audioBlob);
+      audio.onloadedmetadata = () => {
+        resolve(audio.duration);
+        URL.revokeObjectURL(audio.src);
+      };
+      audio.onerror = () => {
+        resolve(0);
+      };
+    });
+  };
+
   const transcribeWithGemini = async (audioBlob) => {
     if (!apiKey) {
       throw new Error('Please provide a Gemini API key');
@@ -799,10 +825,15 @@ function App() {
       // Chunking logic: split audio if > 20MB
       const chunkSizeBytes = 10 * 1024 * 1024; // 10MB per chunk
       const chunks = audioBlob.size > 20 * 1024 * 1024 ? splitBlobIntoChunks(audioBlob, chunkSizeBytes) : [audioBlob];
+      // Get total audio duration once
+      const totalDuration = await getAudioDuration(audioBlob);
       let fullTranscription = '';
+      let offsetSeconds = 0;
       for (let i = 0; i < chunks.length; i++) {
         // Only show a generic message, not chunk progress
         setCurrentStep('Sending audio to Gemini for processing...');
+        // Calculate chunk duration proportionally
+        const chunkDuration = totalDuration * (chunks[i].size / audioBlob.size);
         // Convert chunk to base64
         const base64Audio = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -831,7 +862,10 @@ function App() {
           if (!text || text.trim().length === 0) {
             throw new Error('Gemini API returned empty transcription. The audio might be too quiet or contain no speech.');
           }
-          fullTranscription += (i > 0 ? '\n' : '') + text;
+          // Offset timestamps for this chunk using cumulative duration
+          const adjustedText = offsetTranscriptTimestamps(text, Math.round(offsetSeconds));
+          fullTranscription += (i > 0 ? '\n' : '') + adjustedText;
+          offsetSeconds += Math.round(chunkDuration);
         } catch (chunkError) {
           throw new Error(`Chunk ${i + 1} failed: ${chunkError.message}`);
         }
