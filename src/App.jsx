@@ -850,7 +850,7 @@ function App() {
           reader.readAsDataURL(chunks[i]);
         });
         const prompt = "Please transcribe the following audio file to text with timestamps. Format the output as: [MM:SS] spoken text. For example: [00:15] Hello, welcome to this video. [00:22] Today we'll be discussing... Provide accurate timestamps for each segment of speech.";
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini API request timeout (60 seconds)')), 60000));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini API request timeout (15 minutes)')), 900000));
         const transcriptionPromise = model.generateContent([
           prompt,
           { inlineData: { mimeType: "audio/mp3", data: base64Audio } }
